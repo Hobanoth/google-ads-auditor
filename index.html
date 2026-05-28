@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Herramienta avanzada interactiva para la auditoría, optimización y conexión API en tiempo real con Google Ads.">
+    <title>Google Ads Auditor & Optimization Assistant</title>
+    <!-- Google Fonts: Outfit (Headings) & Inter (Body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Google Identity Services client SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top notification banner -->
+    <div id="notification-banner" class="notification-banner" style="display: none;">
+        <span id="notification-text">Sincronización completada correctamente.</span>
+        <button class="notification-close" onclick="app.closeNotification()">&times;</button>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <h2>AdsAuditor</h2>
+            </div>
+            
+            <nav class="sidebar-menu">
+                <button class="nav-btn active" data-target="dashboard" id="btn-dashboard">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="9"></rect>
+                        <rect x="14" y="3" width="7" height="5"></rect>
+                        <rect x="14" y="12" width="7" height="9"></rect>
+                        <rect x="3" y="16" width="7" height="5"></rect>
+                    </svg>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-btn" data-target="api-connect" id="btn-api">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1"></path>
+                        <polyline points="18 8 22 12 18 16"></polyline>
+                        <line x1="12" y1="12" x2="22" y2="12"></line>
+                    </svg>
+                    <span>Conexión API</span>
+                </button>
+                <button class="nav-btn" data-target="config-audit" id="btn-config">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span>Configuración</span>
+                </button>
+                <button class="nav-btn" data-target="metrics-audit" id="btn-metrics">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                        <circle cx="12" cy="4" r="1"></circle>
+                        <circle cx="18" cy="10" r="1"></circle>
+                        <circle cx="6" cy="14" r="1"></circle>
+                    </svg>
+                    <span>Calculadora & Diagnóstico</span>
+                </button>
+                <button class="nav-btn" data-target="negative-words" id="btn-negatives">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Filtro de Negativas</span>
+                </button>
+                <button class="nav-btn" data-target="action-plan" id="btn-plan">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Plan de Acción</span>
+                </button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <span class="version-tag">Versión 2.0 (API Link)</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- SECTION 1: DASHBOARD -->
+            <section id="dashboard" class="content-section active">
+                <header class="section-header">
+                    <h1>Diagnóstico General de Campaña</h1>
+                    <p>Revisa el estado global y sigue el proceso estructurado de auditoría para revivir tus anuncios.</p>
+                </header>
+
+                <div class="overview-grid">
+                    <div class="card card-gradient welcome-card">
+                        <div class="welcome-text">
+                            <h2>¿Tus campañas no están dando resultados?</h2>
+                            <p>Cuando una campaña de Google Ads lleva días activa sin generar conversiones o clics, generalmente se debe a problemas de estructura, ofertas inadecuadas o keywords irrelevantes. Sigue nuestro flujo de auditoría estructurado para encontrar y solucionar el problema hoy mismo.</p>
+                            <div class="button-row">
+                                <button class="btn btn-primary" onclick="app.navigateTo('api-connect')">Conectar API de Google Ads</button>
+                                <button class="btn btn-secondary" onclick="app.navigateTo('config-audit')">Auditoría Manual</button>
+                            </div>
+                        </div>
+                        <div class="welcome-illustration">
+                            <!-- Visual decorative element -->
+                            <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="100" cy="100" r="80" stroke="url(#paint0_linear)" stroke-width="2" stroke-dasharray="10 5" />
+                                <circle cx="100" cy="100" r="50" fill="url(#paint1_linear)" fill-opacity="0.1" />
+                                <path d="M70 120 L95 95 L115 110 L140 80" stroke="var(--accent-color)" stroke-width="4" stroke-linecap="round" />
+                                <circle cx="140" cy="80" r="6" fill="var(--accent-color)" />
+                                <defs>
+                                    <linearGradient id="paint0_linear" x1="20" y1="20" x2="180" y2="180" gradientUnits="userSpaceOnUse">
+                                        <stop stop-color="var(--accent-color)" />
+                                        <stop offset="1" stop-color="var(--success-color)" />
+                                    </linearGradient>
+                                    <linearGradient id="paint1_linear" x1="50" y1="50" x2="150" y2="150" gradientUnits="userSpaceOnUse">
+                                        <stop stop-color="var(--accent-color)" />
+                                        <stop offset="1" stop-color="transparent" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="api-status-widget" id="api-status-banner-dashboard">
+                    <div class="widget-content">
+                        <div class="status-pulse-wrapper">
+                            <span class="status-pulse-dot offline" id="dashboard-pulse"></span>
+                            <span class="widget-status-text" id="dashboard-status-text">Sin conexión a la API de Google Ads</span>
+                        </div>
+                        <span class="widget-action-link" onclick="app.navigateTo('api-connect')">Configurar conexión &rarr;</span>
+                    </div>
+                </div>
+
+                <h3 class="subsection-title">Pasos del Proceso de Optimización</h3>
+                <div class="steps-container">
+                    <div class="step-card" onclick="app.navigateTo('api-connect')">
+                        <div class="step-num">01</div>
+                        <h4>Conexión Automática API</h4>
+                        <p>Vincula de forma segura tu cuenta para importar campañas activas, configuraciones y métricas en 1 clic.</p>
+                        <span class="step-link">Conectar API &rarr;</span>
+                    </div>
+                    <div class="step-card" onclick="app.navigateTo('config-audit')">
+                        <div class="step-num">02</div>
+                        <h4>Auditoría de Estructura</h4>
+                        <p>Evalúa que los cimientos de tu campaña (redes, segmentación, pujas y píxeles) estén configurados para el éxito.</p>
+                        <span class="step-link">Revisar configuración &rarr;</span>
+                    </div>
+                    <div class="step-card" onclick="app.navigateTo('metrics-audit')">
+                        <div class="step-num">03</div>
+                        <h4>Análisis de Embudo</h4>
+                        <p>Analiza clics, impresiones e inversión histórica para localizar el cuello de botella técnico del tráfico.</p>
+                        <span class="step-link">Diagnosticar métricas &rarr;</span>
+                    </div>
+                    <div class="step-card" onclick="app.navigateTo('negative-words')">
+                        <div class="step-num">04</div>
+                        <h4>Limpieza de Consultas</h4>
+                        <p>Filtra las búsquedas de información o competidores inútiles y añade palabras clave negativas de inmediato.</p>
+                        <span class="step-link">Escanear negativas &rarr;</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: API CONNECTION SECTION -->
+            <section id="api-connect" class="content-section">
+                <header class="section-header">
+                    <h1>Conexión con la API de Google Ads</h1>
+                    <p>Sincroniza tus campañas automáticamente de forma 100% segura y local desde tu navegador.</p>
+                </header>
+
+                <div class="audit-grid">
+                    <!-- Column 1: API Config Form -->
+                    <div class="card">
+                        <div class="card-header-actions">
+                            <h3>Credenciales de la API</h3>
+                            <div class="badge badge-info-outline" style="border:1px solid var(--accent-color); color:var(--accent-color); background:none;">Seguridad Local</div>
+                        </div>
+                        <p class="card-subtitle">Introduce tus datos del Centro de la API de Google Ads y la Google Cloud Console.</p>
+                        
+                        <form id="api-config-form" class="interactive-form">
+                            <!-- OAuth Client ID -->
+                            <div class="form-group">
+                                <label for="api-client-id">Google Client ID de OAuth 2.0</label>
+                                <input type="text" id="api-client-id" class="form-input" placeholder="Ej: 12345678-abcde.apps.googleusercontent.com" required>
+                                <div class="form-help">Obtenlo en tu Google Cloud Console. Debe tener habilitada la API de Google Ads y permitir el origen JavaScript actual.</div>
+                            </div>
+
+                            <!-- Developer Token -->
+                            <div class="form-group">
+                                <label for="api-dev-token">Token de Desarrollador (Developer Token)</label>
+                                <input type="password" id="api-dev-token" class="form-input" placeholder="Introduce tu Developer Token de Google Ads" required>
+                                <div class="form-help">Lo encuentras en tu cuenta de administrador de Google Ads (MCC) en "Herramientas > Centro de la API".</div>
+                            </div>
+
+                            <!-- Customer ID -->
+                            <div class="form-group">
+                                <label for="api-customer-id">Customer ID de Google Ads (Cuenta Cliente)</label>
+                                <input type="text" id="api-customer-id" class="form-input" placeholder="Ej: 123-456-7890" required>
+                                <div class="form-help">El ID de 10 dígitos de la cuenta que contiene las campañas a auditar.</div>
+                            </div>
+
+                            <!-- Login Customer ID (MCC Manager ID, optional) -->
+                            <div class="form-group">
+                                <label for="api-manager-id">Login Customer ID / ID de Administrador (Opcional)</label>
+                                <input type="text" id="api-manager-id" class="form-input" placeholder="Ej: 987-654-3210">
+                                <div class="form-help">Si tu token de desarrollador pertenece a una cuenta de administrador (MCC), introduce aquí el ID de la cuenta MCC principal.</div>
+                            </div>
+
+                            <!-- Metrics date range -->
+                            <div class="form-group">
+                                <label for="api-date-range">Rango de Fecha para Métricas</label>
+                                <select id="api-date-range" class="form-select">
+                                    <option value="LAST_7_DAYS">Últimos 7 días</option>
+                                    <option value="LAST_14_DAYS" selected>Últimos 14 días (Recomendado)</option>
+                                    <option value="LAST_30_DAYS">Últimos 30 días</option>
+                                </select>
+                            </div>
+
+                            <div class="button-row">
+                                <button type="submit" class="btn btn-primary" id="btn-api-save">Guardar Credenciales</button>
+                                <button type="button" class="btn btn-secondary" id="btn-api-clear">Limpiar Todo</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Column 2: Connection Status & Campaign Fetcher -->
+                    <div class="card feedback-card flex-column-layout">
+                        <div class="connection-status-panel">
+                            <h3>Estado de la Conexión</h3>
+                            <div class="connection-status-card" id="connection-status-box">
+                                <div class="status-header">
+                                    <span class="status-pulse-dot offline" id="api-pulse-dot"></span>
+                                    <span id="api-connection-text" class="status-text">Desconectado</span>
+                                </div>
+                                <p id="api-connection-subtext" class="status-subtext">Guarda tus credenciales y haz clic abajo para sincronizar.</p>
+                            </div>
+                            
+                            <!-- Main OAuth trigger -->
+                            <button class="btn btn-primary btn-full margin-top-1" id="btn-api-auth" style="display: none;">
+                                <svg class="inline-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path>
+                                </svg>
+                                Iniciar Sesión con Google
+                            </button>
+                        </div>
+
+                        <!-- Dynamic Campaign Import Container -->
+                        <div class="campaign-import-box" id="campaign-import-box" style="display: none;">
+                            <h4 class="subsection-title">Importar Campañas Activas</h4>
+                            
+                            <!-- Loading Spinner -->
+                            <div class="api-loading-spinner" id="api-loading" style="display: none;">
+                                <div class="spinner"></div>
+                                <p>Consultando API de Google Ads...</p>
+                            </div>
+
+                            <div class="campaign-select-wrapper" id="campaign-select-container" style="display: none;">
+                                <div class="form-group">
+                                    <label for="api-campaigns-select">Selecciona una Campaña Activa</label>
+                                    <select id="api-campaigns-select" class="form-select">
+                                        <!-- Dynamic options -->
+                                    </select>
+                                </div>
+                                <button class="btn btn-primary btn-full margin-top-1" id="btn-api-sync-campaign">
+                                    Sincronizar y Analizar Campaña
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Help / Instruction Box -->
+                        <div class="api-instructions-card" id="api-instructions-card">
+                            <h5>¿Cómo obtener estas credenciales?</h5>
+                            <ol>
+                                <li><strong>Client ID</strong>: Crea un proyecto en la <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a>, ve a "API y Servicios > Credenciales" y crea un ID de cliente de OAuth para una Aplicación Web. Añade el origen local a los "Orígenes de JavaScript autorizados".</li>
+                                <li><strong>Developer Token</strong>: Lo generas desde tu panel de administrador de Google Ads en la esquina superior en "Herramientas > Centro de la API".</li>
+                                <li><strong>Customer ID</strong>: Es el número de 10 dígitos arriba a la derecha en tu panel de Google Ads (ej: 421-229-8730).</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: CONFIGURATION AUDIT -->
+            <section id="config-audit" class="content-section">
+                <header class="section-header">
+                    <h1>1. Auditoría de Configuración Técnica</h1>
+                    <p>Evalúa las configuraciones iniciales que pueden estar limitando el alcance o desperdiciando el dinero.</p>
+                </header>
+
+                <div class="audit-grid">
+                    <!-- Column 1: Config Form -->
+                    <div class="card config-card-main">
+                        <h3>Cuestionario de Configuración</h3>
+                        <p class="card-subtitle">Responde con honestidad para identificar errores de infraestructura en tu campaña.</p>
+                        
+                        <form id="config-form" class="interactive-form">
+                            <!-- Question 1 -->
+                            <div class="form-group">
+                                <label for="config-networks">1. ¿Qué redes tienes activadas en la misma campaña?</label>
+                                <select id="config-networks" class="form-select">
+                                    <option value="both">Red de Búsqueda y Red de Display juntas (Por defecto)</option>
+                                    <option value="search-only">Únicamente Red de Búsqueda (Recomendado)</option>
+                                    <option value="display-only">Únicamente Red de Display</option>
+                                </select>
+                                <div class="form-help">Mezclar Búsqueda y Display en la misma campaña suele diluir el presupuesto en clics accidentales de Display de baja calidad.</div>
+                            </div>
+
+                            <!-- Question 2 -->
+                            <div class="form-group">
+                                <label for="config-location">2. ¿Cómo está configurada la Segmentación Geográfica?</label>
+                                <select id="config-location" class="form-select">
+                                    <option value="presence-interest">Presencia o Interés: "Personas en, que visitan con frecuencia o que muestran interés..." (Por defecto)</option>
+                                    <option value="presence-only">Presencia: "Personas que se encuentran o suelen encontrarse en tus ubicaciones..." (Recomendado)</option>
+                                    <option value="all-world">Todo el mundo / Sin límites específicos</option>
+                                </select>
+                                <div class="form-help">"Presencia o Interés" puede mostrar tus anuncios a personas en otros países que solo buscaron información sobre tu localidad.</div>
+                            </div>
+
+                            <!-- Question 3 -->
+                            <div class="form-group">
+                                <label for="config-bidding">3. ¿Qué Estrategia de Puja estás utilizando?</label>
+                                <select id="config-bidding" class="form-select">
+                                    <option value="smart-no-data">Pujas Inteligentes (Maximizar Conversiones / CPA Objetivo) sin tener conversiones previas registradas</option>
+                                    <option value="cpc-manual">CPC Manual o Maximizar Clics (Recomendado para campañas nuevas sin historial)</option>
+                                    <option value="smart-with-data">Pujas Inteligentes con píxel de conversiones validado y volumen previo (Recomendado para campañas maduras)</option>
+                                </select>
+                                <div class="form-help">Si usas "Maximizar Conversiones" sin datos previos, el algoritmo de Google no sabe a quién buscar y la campaña puede bloquearse o gastar de forma errática.</div>
+                            </div>
+
+                            <!-- Question 4 -->
+                            <div class="form-group">
+                                <label for="config-conversions">4. ¿Tienes el Seguimiento de Conversiones configurado y verificado?</label>
+                                <select id="config-conversions" class="form-select">
+                                    <option value="none">No tengo conversiones configuradas, o están inactivas/en rojo</option>
+                                    <option value="basic">Tengo conversiones básicas configuradas pero no las he testeado</option>
+                                    <option value="verified">Sí, configurado correctamente con Google Tag Manager / GA4 y verificado</option>
+                                </select>
+                                <div class="form-help">Sin un píxel de conversión verificado, es imposible optimizar tus campañas de manera automatizada.</div>
+                            </div>
+
+                            <!-- Question 5 -->
+                            <div class="form-group">
+                                <label for="config-keywords">5. ¿Qué tipo de Concordancia de Palabras Clave domina en tu campaña?</label>
+                                <select id="config-keywords" class="form-select">
+                                    <option value="broad-only">Principalmente Concordancia Amplia pura (ej: comprar casa)</option>
+                                    <option value="mixed">Mezcla de Concordancia de Frase (ej: "comprar casa") y Exacta (ej: [comprar casa])</option>
+                                    <option value="exact-only">Principalmente Concordancia Exacta</option>
+                                </select>
+                                <div class="form-help">La concordancia amplia pura suele atraer mucho tráfico irrelevante (ej. búsquedas de información, competidores, etc.) consumiendo el presupuesto rápidamente.</div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Column 2: Audit Feedback -->
+                    <div class="card feedback-card">
+                        <div class="score-container">
+                            <h3>Puntaje de Configuración</h3>
+                            <div class="score-badge" id="config-score">100%</div>
+                            <p id="score-status">Excelente configuración inicial.</p>
+                        </div>
+                        <div class="audit-recommendations" id="config-recommendations">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 4: METRICS AUDIT -->
+            <section id="metrics-audit" class="content-section">
+                <header class="section-header">
+                    <h1>2. Calculadora & Diagnóstico de Embudo</h1>
+                    <p>Introduce las métricas reales de tus últimos días de campaña para localizar en qué etapa del embudo se pierde el tráfico.</p>
+                </header>
+
+                <div class="metrics-grid">
+                    <!-- Column 1: Input Panel -->
+                    <div class="card">
+                        <h3>Introduce tus Métricas</h3>
+                        <p class="card-subtitle">Copia y pega los datos acumulados en los últimos 7 o 14 días.</p>
+                        
+                        <form id="metrics-form" class="interactive-form">
+                            <div class="form-group">
+                                <label for="metric-impressions">Impresiones</label>
+                                <input type="number" id="metric-impressions" class="form-input" min="0" placeholder="Ej: 5000" required>
+                                <div class="form-help">Número de veces que tus anuncios aparecieron en pantalla.</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="metric-clicks">Clics</label>
+                                <input type="number" id="metric-clicks" class="form-input" min="0" placeholder="Ej: 150" required>
+                                <div class="form-help">Número de clics que los usuarios hicieron en tus anuncios.</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="metric-cost">Presupuesto invertido (Coste)</label>
+                                <div class="input-currency-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="metric-cost" class="form-input padding-left-currency" min="0" step="0.01" placeholder="Ej: 75.50" required>
+                                </div>
+                                <div class="form-help">Total gastado en el rango de tiempo seleccionado.</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="metric-conversions">Conversiones</label>
+                                <input type="number" id="metric-conversions" class="form-input" min="0" placeholder="Ej: 3" required>
+                                <div class="form-help">Contactos, ventas o registros completados gracias a los anuncios.</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-full">Analizar Rendimiento</button>
+                        </form>
+                    </div>
+
+                    <!-- Column 2: Dashboard Results -->
+                    <div class="card results-card">
+                        <h3>Indicadores Clave de Rendimiento (KPIs)</h3>
+                        
+                        <div class="kpi-grid">
+                            <!-- CTR -->
+                            <div class="kpi-card" id="kpi-ctr-card">
+                                <span class="kpi-title">CTR (Ratio de Clics)</span>
+                                <span class="kpi-value" id="kpi-ctr">--</span>
+                                <span class="kpi-status" id="kpi-ctr-status">Sin datos</span>
+                            </div>
+                            
+                            <!-- CPC -->
+                            <div class="kpi-card" id="kpi-cpc-card">
+                                <span class="kpi-title">CPC Medio</span>
+                                <span class="kpi-value" id="kpi-cpc">--</span>
+                                <span class="kpi-status" id="kpi-cpc-status">Sin datos</span>
+                            </div>
+
+                            <!-- Conv Rate -->
+                            <div class="kpi-card" id="kpi-cr-card">
+                                <span class="kpi-title">Tasa de Conversión</span>
+                                <span class="kpi-value" id="kpi-cr">--</span>
+                                <span class="kpi-status" id="kpi-cr-status">Sin datos</span>
+                            </div>
+
+                            <!-- CPA -->
+                            <div class="kpi-card" id="kpi-cpa-card">
+                                <span class="kpi-title">CPA (Coste por Adquisición)</span>
+                                <span class="kpi-value" id="kpi-cpa">--</span>
+                                <span class="kpi-status" id="kpi-cpa-status">Sin datos</span>
+                            </div>
+                        </div>
+
+                        <!-- Funnel Visualization -->
+                        <div class="funnel-container">
+                            <h4 class="subsection-title">Visualización del Embudo de Conversión</h4>
+                            <div class="funnel-stage stage-impressions">
+                                <div class="funnel-label">Impresiones</div>
+                                <div class="funnel-bar" style="width: 100%"><span id="funnel-impressions-val">0</span></div>
+                            </div>
+                            <div class="funnel-stage stage-clicks">
+                                <div class="funnel-label">Clics</div>
+                                <div class="funnel-bar" id="funnel-clicks-bar" style="width: 0%"><span id="funnel-clicks-val">0 (0%)</span></div>
+                            </div>
+                            <div class="funnel-stage stage-conversions">
+                                <div class="funnel-label">Conversiones</div>
+                                <div class="funnel-bar" id="funnel-conversions-bar" style="width: 0%"><span id="funnel-conversions-val">0 (0%)</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Automated Diagnostics Summary -->
+                        <div class="diagnostic-box" id="diagnostic-output" style="display: none;">
+                            <div class="diagnostic-title">
+                                <svg class="diag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                                <h4 id="diag-summary-title">Análisis de Diagnóstico</h4>
+                            </div>
+                            <div class="diagnostic-desc" id="diag-summary-desc">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 5: NEGATIVE WORDS SCANNER -->
+            <section id="negative-words" class="content-section">
+                <header class="section-header">
+                    <h1>3. Buscador y Filtro de Palabras Clave Negativas</h1>
+                    <p>Detecta y filtra búsquedas irrelevantes que consumen tu presupuesto sin generar ventas.</p>
+                </header>
+
+                <div class="negatives-grid">
+                    <!-- Column 1: Input Terms -->
+                    <div class="card">
+                        <h3>Escanear Términos de Búsqueda</h3>
+                        <p class="card-subtitle">Pega tus términos de búsqueda o palabras clave de Google Ads (uno por línea).</p>
+                        
+                        <div class="form-group">
+                            <textarea id="search-terms-input" class="form-textarea" rows="10" placeholder="Ejemplo:&#10;curso de marketing digital gratis&#10;que es google ads&#10;comprar zapatillas baratas&#10;empleo especialista seo&#10;como hacer anuncios en facebook"></textarea>
+                        </div>
+                        
+                        <div class="button-row">
+                            <button class="btn btn-primary" id="btn-scan-negatives">Escanear Términos Irrelevantes</button>
+                            <button class="btn btn-outline" id="btn-load-sample">Cargar Ejemplo de Prueba</button>
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Scanner Results -->
+                    <div class="card scanner-results-card">
+                        <h3>Fugas de Presupuesto Detectadas</h3>
+                        <p class="card-subtitle">Hemos identificado palabras dudosas o no orientadas a conversión comercial.</p>
+                        
+                        <div class="negative-results-empty" id="negatives-empty">
+                            <svg class="empty-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <p>Introduce términos de búsqueda y presiona "Escanear" para identificar términos negativos recomendados.</p>
+                        </div>
+
+                        <div class="negative-results-container" id="negatives-results" style="display: none;">
+                            <div class="results-stats">
+                                <span class="badge badge-danger" id="negatives-count">0 Filtros Encontrados</span>
+                                <p>Recomendamos encarecidamente añadir estos términos como palabras clave negativas a nivel de campaña.</p>
+                            </div>
+                            
+                            <div class="table-wrapper">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Término Escaneado</th>
+                                            <th>Palabra Negativa Recomendada</th>
+                                            <th>Categoría / Razón del Filtro</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="negatives-table-body">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="action-box">
+                                <h4>Palabras clave negativas a copiar en Google Ads:</h4>
+                                <div class="copy-box">
+                                    <textarea id="copy-negatives-text" class="form-textarea readonly-textarea" readonly></textarea>
+                                    <button class="btn btn-secondary btn-small" id="btn-copy-clipboard">Copiar Lista</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 6: ACTION PLAN & EXPORT -->
+            <section id="action-plan" class="content-section">
+                <header class="section-header">
+                    <h1>4. Plan de Acción Personalizado de Optimización</h1>
+                    <p>Una lista de verificación estructurada por prioridades para aplicar directamente en tu cuenta de Google Ads.</p>
+                </header>
+
+                <div class="plan-grid">
+                    <!-- Column 1: Custom Checklist -->
+                    <div class="card plan-card-main">
+                        <div class="card-header-actions">
+                            <h3>Lista de Verificación de Optimización</h3>
+                            <button class="btn btn-secondary btn-small" id="btn-print-report">
+                                <svg class="inline-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                    <rect x="6" y="14" width="12" height="8"></rect>
+                                </svg>
+                                Guardar / Imprimir Reporte PDF
+                            </button>
+                        </div>
+                        <p class="card-subtitle">Marca las tareas según las vayas solucionando en tu interfaz de Google Ads.</p>
+
+                        <!-- Priority 1: High -->
+                        <div class="priority-group">
+                            <h4 class="priority-title priority-high">Prioridad Alta (¡Hacer de inmediato!)</h4>
+                            <div class="checklist-items" id="checklist-high">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Priority 2: Medium -->
+                        <div class="priority-group">
+                            <h4 class="priority-title priority-medium">Prioridad Media (Próximas 48 horas)</h4>
+                            <div class="checklist-items" id="checklist-medium">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Priority 3: Low -->
+                        <div class="priority-group">
+                            <h4 class="priority-title priority-low">Prioridad Baja (Monitoreo Continuo)</h4>
+                            <div class="checklist-items" id="checklist-low">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Additional Recommendations -->
+                    <div class="card">
+                        <h3>Recomendaciones Estratégicas para Campañas sin Resultados</h3>
+                        <p class="card-subtitle">Consejos fundamentales si la campaña lleva varios días sin apenas rendimiento.</p>
+                        
+                        <div class="strategy-list">
+                            <div class="strategy-item">
+                                <h5>1. Revisa el Presupuesto vs CPC Estimado</h5>
+                                <p>Si tu presupuesto diario es de $5 y el costo por clic promedio en tu sector es de $2, solo conseguirás 2.5 clics al día. Con tan pocos clics, el algoritmo no aprenderá jamás. Sube el presupuesto diario a un mínimo de 10 veces el valor de tu CPC estimado.</p>
+                            </div>
+                            <div class="strategy-item">
+                                <h5>2. Apaga la Red de Display en Campañas de Búsqueda</h5>
+                                <p>Google marca por defecto la Red de Display al configurar una campaña de Búsqueda. Esto hace que tu anuncio aparezca en apps móviles y webs de juegos como banner, consumiendo tu saldo con clics no deseados.</p>
+                            </div>
+                            <div class="strategy-item">
+                                <h5>3. Detén la Concordancia Amplia al Iniciar</h5>
+                                <p>La concordancia amplia sin datos previos hará que tu anuncio salga para palabras como "gratis", "competidor x", etc. Empieza siempre usando únicamente Concordancia de Frase y Exacta.</p>
+                            </div>
+                            <div class="strategy-item">
+                                <h5>4. Valida tu Landing Page</h5>
+                                <p>Si el diagnóstico de métricas indica un alto porcentaje de clics pero cero conversiones, el problema está en tu landing page: o carga lenta, o el formulario no funciona, o el mensaje del anuncio no coincide con la oferta del sitio web.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MAIN JAVASCRIPT -->
+    <script src="app.js"></script>
+</body>
+</html>
