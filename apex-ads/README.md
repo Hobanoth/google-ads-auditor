@@ -41,6 +41,23 @@ Cambios que aplican a todos:
 - Los CTA del botón van sin punto final.
 - No se agregó ninguna afirmación nueva. Todo el texto sale de los copys enviados.
 
+## Versión 2: gancho largo (07, 11, 01 y 04)
+
+Esta versión responde al comentario del estratega: en la v1 la pregunta solo estaba completa unos 3 segundos.
+
+| Tiempo | v2 |
+|---|---|
+| **0–7.5 s** | La pregunta está **completa desde el primer frame**. La frase clave se resalta a los 0.5 s y la animación de la idea arranca a los 0.6 s. |
+| **7.5–12.5 s** | La pregunta **sube y se queda como encabezado**. Debajo entra el panel morado con la pestaña "En Apex" y los beneficios, así que la pregunta nunca sale de pantalla. |
+| **12.5–15 s** | Cierre de marca más corto: el logo, las 3 estrellas y el CTA. |
+
+Los archivos están en `out/v2/` y se llaman `APEX_<copy>_V2-GANCHO-LARGO_<formato>.mp4`. La idea es compararlos contra la v1 del mismo copy, con el mismo público y presupuesto. La métrica que decide el gancho es el porcentaje de impresiones que ve 3 segundos o más.
+
+```bash
+node src/synth_ads.js <n> work/aud/a<NN>_v2.wav 2
+cd src && node render_ads.js batch ../work/vid 4 "<n>:reel:2,<n>:square:2"
+```
+
 ## Marca
 
 - **Colores tomados de sus artes:** coral `#DD3113`, morado `#453B87`, morado oscuro `#25172E`, lavanda `#8786C1`, y el navy y naranja del logo.

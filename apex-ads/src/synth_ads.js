@@ -1,11 +1,14 @@
 // Música + efectos sintetizados desde cero (sin samples) para cada anuncio.
 // 96 BPM, Re mayor: D – Bm – G – A – D – G/D. Ukulele (Karplus-Strong), glockenspiel,
 // bajo, kick suave, palmas, shaker y un "logo sonoro" de 3 notas para las 3 estrellas.
-// uso: node synth_ads.js <copyIdx> <out.wav>
+// uso: node synth_ads.js <copyIdx> <out.wav> [v]   (v=2: gancho largo, 3 compases de gancho)
 const fs = require('fs');
 const COPIES = require('./copies.js'), TLM = require('./timeline.js');
-const idx = +process.argv[2], OUT = process.argv[3];
-const copy = COPIES[idx], TL = TLM.build(copy);
+const idx = +process.argv[2], OUT = process.argv[3], VAR = +(process.argv[4] || 1);
+const copy = COPIES[idx], TL = TLM.build(copy, { v: VAR });
+const HB = TL.hookBars;               // compases de gancho (sección suave) antes del groove
+const KG = VAR === 2 ? 0.76 : 1;      // v2: kick un poco más bajo (en v1 dominaba)
+const HL = VAR === 2 ? 0.13 : 0.11;   // v2: ukulele un poco más presente durante el gancho
 const SR = 48000, DUR = 15, N = SR * DUR, B = TL.B, TAU = Math.PI * 2;
 const L = new Float32Array(N), R = new Float32Array(N), RV = new Float32Array(N); // RV = envío a reverb (mono)
 let seed = 7; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -170,25 +173,27 @@ const PADN = { D: [62, 66, 69], Bm: [62, 66, 71], G: [62, 67, 71], A: [61, 64, 6
 const ISLAND = [[0, 1], [1, 1], [1.5, 0], [2.5, 0], [3, 1], [3.5, 0]]; // [beat, down?]
 for (let bar = 0; bar < 6; bar++) {
   const t0 = bar * 4 * B, ch = PROG[bar];
-  const lvl = bar < 2 ? 0.11 : 0.15;
+  const lvl = bar < HB ? HL : 0.15;
   if (bar < 5) ISLAND.forEach(([bt, d]) => strum(t0 + bt * B, ch, !!d, lvl));
   else { strum(t0, 'G', true, 0.15); strum(t0 + 1.5 * B, 'G', false, 0.15); strum(t0 + 2 * B, 'D', true, 0.17); }
-  for (let s16 = 0; s16 < 16; s16++) if (bar < 5 || s16 < 8) shaker(t0 + s16 * B / 4, (s16 % 4 === 2 ? 0.05 : 0.03) * (bar < 2 ? 0.7 : 1), (s16 % 2 ? 0.35 : -0.15));
-  if (bar === 1) { snap(t0 + B); snap(t0 + 3 * B); }
-  if (bar >= 2 && bar < 5) {
-    kick(t0, 0.5); kick(t0 + 2 * B, 0.45); if (bar === 4) { kick(t0 + B, 0.35); kick(t0 + 3 * B, 0.35); }
+  for (let s16 = 0; s16 < 16; s16++) if (bar < 5 || s16 < 8) shaker(t0 + s16 * B / 4, (s16 % 4 === 2 ? 0.05 : 0.03) * (bar < HB ? 0.7 : 1), (s16 % 2 ? 0.35 : -0.15));
+  if (bar >= 1 && bar < HB) { snap(t0 + B); snap(t0 + 3 * B); }
+  if (bar >= HB && bar < 5) {
+    kick(t0, 0.5 * KG); kick(t0 + 2 * B, 0.45 * KG); if (bar === 4) { kick(t0 + B, 0.35 * KG); kick(t0 + 3 * B, 0.35 * KG); }
     clap(t0 + B); clap(t0 + 3 * B);
     const r = ROOT[ch];
     bass(t0, 0.7 * B, r, 0.2); bass(t0 + 1.5 * B, 0.4 * B, r, 0.15); bass(t0 + 2 * B, 0.7 * B, r + 7, 0.17); bass(t0 + 3 * B, 0.8 * B, r + 12, 0.15);
     pad(t0, 4 * B, PADN[ch], 0.014);
   }
-  if (bar === 5) { kick(t0, 0.45); clap(t0 + B, 0.14); bass(t0, 1.8 * B, ROOT.G, 0.18); bass(t0 + 2 * B, 2 * B, ROOT.D, 0.2); pad(t0, 2 * B, PADN.G, 0.012); pad(t0 + 2 * B, 2 * B, PADN.D, 0.014); }
+  if (bar === 5) { kick(t0, 0.45 * KG); clap(t0 + B, 0.14); bass(t0, 1.8 * B, ROOT.G, 0.18); bass(t0 + 2 * B, 2 * B, ROOT.D, 0.2); pad(t0, 2 * B, PADN.G, 0.012); pad(t0 + 2 * B, 2 * B, PADN.D, 0.014); }
 }
 // melodía de glockenspiel (gancho)
 [[0, 81], [0.5, 78], [1, 81], [1.5, 83], [2.5, 81], [3, 78], [4, 78], [4.5, 74], [5, 78], [5.5, 81], [6.5, 78], [7, 76]]
   .forEach(([bt, m]) => glock(bt * B, m, 0.055, 0.25, 0.4));
+// en v2 el gancho dura un compás más: la melodía continúa
+if (HB === 3) [[8, 81], [8.5, 83], [9, 86], [10, 83], [10.5, 81], [11, 78]].forEach(([bt, m]) => glock(bt * B, m, 0.05, 0.25, 0.4));
 // respuesta breve en la sección de beneficios
-[[9.5, 74], [10, 76], [10.5, 78], [13.5, 81], [14, 78], [14.5, 76]].forEach(([bt, m]) => glock(bt * B, m, 0.04, -0.25, 0.4));
+[[9.5, 74], [10, 76], [10.5, 78], [13.5, 81], [14, 78], [14.5, 76]].forEach(([bt, m]) => glock((bt + (HB - 2) * 4) * B, m, 0.04, -0.25, 0.4));
 // final: acorde de cierre con campana
 glock(22 * B, 86, 0.06, 0, 0.5); glock(22 * B, 81, 0.05, 0.3, 0.5); glock(22 * B, 78, 0.04, -0.3, 0.5);
 

@@ -1,6 +1,6 @@
 // uso:
-//   node render_ads.js stills <outdir> <copyIdx> <fmt> <t1,t2,...>      (tiempos en segundos)
-//   node render_ads.js batch  <outdir> <workers> <jobs: "i:fmt,i:fmt,...">
+//   node render_ads.js stills <outdir> <copyIdx> <fmt> <t1,t2,...> [v]   (tiempos en segundos; v=1|2)
+//   node render_ads.js batch  <outdir> <workers> <jobs: "i:fmt[:v],i:fmt[:v],...">
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const { spawn } = require('child_process');
 const path = require('path'), fs = require('fs');
@@ -18,16 +18,17 @@ async function openPage(browser, fmt) {
   fs.mkdirSync(outdir, { recursive: true });
   const browser = await chromium.launch({ args: ARGS });
   if (mode === 'stills') {
-    const [, , , , idx, fmt, ts] = process.argv;
+    const [, , , , idx, fmt, ts, vv] = process.argv;
+    const v = +(vv || 1);
     const page = await openPage(browser, fmt);
-    await page.evaluate(([i, f]) => window.setup(i, f, 1), [+idx, fmt]);
+    await page.evaluate(([i, f, v]) => window.setup(i, f, 1, v), [+idx, fmt, v]);
     for (const t of ts.split(',').map(Number)) {
       await page.evaluate(f => window.renderFrame(f), Math.round(t * 30));
-      await page.screenshot({ path: `${outdir}/c${idx}_${fmt}_${t.toFixed(2).padStart(5, '0')}.png`, clip: { x: 0, y: 0, width: 1080, height: fmt === 'reel' ? 1920 : 1080 } });
+      await page.screenshot({ path: `${outdir}/c${idx}_${fmt}${v === 2 ? '_v2' : ''}_${t.toFixed(2).padStart(5, '0')}.png`, clip: { x: 0, y: 0, width: 1080, height: fmt === 'reel' ? 1920 : 1080 } });
     }
   } else {
     const [, , , , workers, jobsStr] = process.argv;
-    const jobs = jobsStr.split(',').map(s => { const [i, f] = s.split(':'); return { i: +i, fmt: f }; });
+    const jobs = jobsStr.split(',').map(s => { const [i, f, v] = s.split(':'); return { i: +i, fmt: f, v: +(v || 1) }; });
     let next = 0;
     const worker = async (wid) => {
       const browser = await chromium.launch({ args: ARGS }); // un navegador por worker = render en paralelo real
@@ -36,8 +37,8 @@ async function openPage(browser, fmt) {
         const job = jobs[next++];
         if (!pages[job.fmt]) pages[job.fmt] = await openPage(browser, job.fmt);
         const page = pages[job.fmt];
-        const info = await page.evaluate(([i, f]) => window.setup(i, f, 3), [job.i, job.fmt]);
-        const out = `${outdir}/${info.id}_${job.fmt}.mp4`;
+        const info = await page.evaluate(([i, f, v]) => window.setup(i, f, 3, v), [job.i, job.fmt, job.v]);
+        const out = `${outdir}/${info.id}_${job.fmt}${job.v === 2 ? '_v2' : ''}.mp4`;
         const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', '30', '-c:v', 'png', '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '15', '-pix_fmt', 'yuv420p', '-r', '30', out], { stdio: ['pipe', 'inherit', 'inherit'] });
         const t0 = Date.now();
         for (let f = 0; f < info.frames; f++) {
