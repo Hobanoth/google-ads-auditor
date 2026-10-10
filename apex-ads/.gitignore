@@ -4,3 +4,4 @@ out/
 # material del cliente (logo y capturas): no se versiona
 assets/*.jpg
 assets/*.png
+node_modules/

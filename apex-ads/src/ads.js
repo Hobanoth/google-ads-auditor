@@ -1,13 +1,20 @@
 // ============================================================================
-//  APEX BLENDED SCHOOL — plantilla de anuncios animados (100% código)
+//  COLEGIO ESTEFANÍA — anuncios animados (100% código) · plantilla original: Apex Blended School
 //  Formatos: reel 1080x1920 · square 1080x1080 · 30 fps · 15 s
 // ============================================================================
 const FPS = 30, DUR = 15, TAU = Math.PI * 2;
+// Colores de sus artes: navy #00286E (texto), azul del logo #01308A, cian #019CDE, amarillo #FEDC01, lima #E0E830.
+// Dos acentos: coral = cian (trazos, piezas, anillos; admite texto blanco) · acc = amarillo (marcador, pestaña,
+// "+" y flecha del botón; siempre con texto navy encima: onAcc). coralL = amarillo para resaltar sobre el panel.
 const C = {
-  navy: '#22192E', logoNavy: '#21182B', purple: '#453B87', purpleD: '#2D2462', deep: '#25172E',
-  coral: '#DD3113', coralL: '#FF5B3A', coralD: '#B4260C', orange: '#DF6441', star: '#E23E21',
-  lav: '#8786C1', lavL: '#D9D6F0', lavXL: '#EEECF7', cream: '#FBF7F1', grid: '#EAE4F0', white: '#FFFFFF', ink2: '#5E5672',
+  navy: '#00286E', logoNavy: '#01308A', purple: '#0A4FB5', purpleD: '#063A8C', deep: '#001E5E',
+  coral: '#019CDE', coralL: '#FEDC01', coralD: '#0077B6', orange: '#C9D400', star: '#FEDC01',
+  acc: '#FEDC01', onAcc: '#00286E', hlInk: '#0077C0',
+  lav: '#5FB4E8', lavL: '#D3E8F7', lavXL: '#EEF6FC', cream: '#FBFCF6', grid: '#E5ECF4', white: '#FFFFFF', ink2: '#4A5A7A',
 };
+// textos de marca (cierre). El lema "Una familia, atendiendo a tu familia" está en su DCE pero no en la web:
+// hasta confirmarlo se usa la oferta educativa, que sí está publicada en colegioestefania.edu.mx.
+const BRAND = { tag: ['PREESCOLAR · PRIMARIA', 'SECUNDARIA · PREPARATORIA'] };
 let FMT, W, H, COPY, TL, LY, MB = 3;
 
 // ---------------------------------------------------------------- utilidades
@@ -77,17 +84,17 @@ function heartPath(ctx, x, y, s) { ctx.beginPath(); ctx.moveTo(x, y + s * 0.75);
 
 // ---------------------------------------------------------------- logo por capas
 const LOGO = { meta: null, layers: {}, full: null };
+// wordmark "COLEGIO ESTEFANÍA" separado en capas por src/logo_layers.py (alfa blanco → se tiñe aquí)
 async function loadLogo() {
-  LOGO.meta = window.LOGO_META;
-  const tint = { laurel_l: C.logoNavy, laurel_r: C.logoNavy, icon: C.logoNavy, est: C.logoNavy, y2020: C.logoNavy, globe: C.orange, star0: C.star, star1: C.star, star2: C.star };
-  const full = document.createElement('canvas'); full.width = full.height = 800; const fx = full.getContext('2d');
-  for (const k of Object.keys(tint)) {
-    const img = new Image(); img.src = `../assets/logo_${k}.png`; await img.decode();
-    const c = document.createElement('canvas'); c.width = c.height = 800; const x = c.getContext('2d');
-    x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = tint[k]; x.fillRect(0, 0, 800, 800);
-    LOGO.layers[k] = c; fx.drawImage(c, 0, 0);
-  }
-  LOGO.full = full;
+  LOGO.meta = window.LOGO_META; const [lw, lh] = LOGO.meta.size;
+  const tinted = async (name) => {
+    const img = new Image(); img.src = `../assets/logo_${name}.png`; await img.decode();
+    const c = document.createElement('canvas'); c.width = lw; c.height = lh; const x = c.getContext('2d');
+    x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = C.logoNavy; x.fillRect(0, 0, lw, lh);
+    return c;
+  };
+  for (const k of LOGO.meta.order) LOGO.layers[k] = await tinted(k);
+  LOGO.full = await tinted('full');
 }
 
 // ---------------------------------------------------------------- texto
@@ -204,7 +211,7 @@ function makeLayout(fmt) {
     ill: { cx: 540, cy: 1060, u: 405 }, grid: 60,
     tab: { h: 455, size: 108, textY: 392, pad: 70 },
     stack: { x: 78, y: 500, w: 924, h: 760 }, card: { h: 152, size: 52 }, st: { max: 90, min: 46 }, plusH: 70, gap: 38,
-    logo: { cx: 540, cy: 590, s: 0.7 }, lock: { y: 888 }, pill: { cy: 1186, h: 124, size: 48, maxW: 920 },
+    logo: { cx: 540, cy: 690, s: 0.5 }, lock: { y: 872 }, pill: { cy: 1130, h: 124, size: 48, maxW: 920 },
     bar: { y: 1475, w: 780, h: 116 }, doodles: 'reel',
   };
   return {
@@ -212,7 +219,7 @@ function makeLayout(fmt) {
     ill: { cx: 540, cy: 778, u: 345 }, grid: 54,
     tab: { h: 196, size: 86, textY: 146, pad: 60 },
     stack: { x: 112, y: 236, w: 856, h: 790 }, card: { h: 120, size: 42 }, st: { max: 72, min: 40 }, plusH: 58, gap: 28,
-    logo: { cx: 540, cy: 338, s: 0.5 }, lock: { y: 595 }, pill: { cy: 858, h: 108, size: 42, maxW: 860 },
+    logo: { cx: 540, cy: 400, s: 0.4 }, lock: { y: 560 }, pill: { cy: 800, h: 108, size: 42, maxW: 860 },
     bar: { y: 968, w: 660, h: 104 }, doodles: 'square',
   };
 }
@@ -260,7 +267,7 @@ function prepare() {
   const ctx = sctx;
   // gancho
   const hookLh = TL.v === 2 ? (COPY.deco === 'circle' ? 1.3 : COPY.deco === 'marker' ? 1.21 : 1.13) : 1.13;
-  HOOK = fit(ctx, TL.words, LY.hook.w, LY.hook.h, { max: LY.hook.max, min: LY.hook.min, lh: hookLh, balance: true, maxLines: 4, pick: TL.v === 2 ? 'quality' : null, linePen: 0, weakPen: 16, lonePen: 12, hlPad: TL.v === 2 && COPY.deco === 'circle' ? 0.09 : 0, wf: w => w.hl ? 800 : 700 });
+  HOOK = fit(ctx, TL.words, LY.hook.w, LY.hook.h, { max: LY.hook.max, min: LY.hook.min, lh: hookLh, balance: true, maxLines: 4, pick: TL.v === 2 ? 'quality' : null, linePen: 0, weakPen: 16, lonePen: 12, hlPad: TL.v === 2 && COPY.deco === 'circle' ? 0.27 : 0, wf: w => w.hl ? 800 : 700 });
   { const g = hookGeo(); HOOK.bottom = g.geo[g.geo.length - 1].y + g.size * 0.4; }
   ILL = { ...LY.ill };
   if (TL.v === 2) { // extensión típica de las metáforas: [-0.62u, +0.75u]
@@ -349,17 +356,10 @@ function doodles(ctx, t, alpha = 1) {
   }
   ctx.restore();
 }
-function chip(ctx, t, a = 1) {
+function chip(ctx, t, a = 1) { // mini-logo arriba durante el gancho
   const p = E.outCubic(prog(t, 0.08, 0.6)); if (p <= 0) return;
-  const s = LY.chip.s, lg = 82 * s;
-  font(ctx, 800, 30 * s); const w1 = ctx.measureText('BLENDED ').width, w2 = ctx.measureText('SCHOOL').width;
-  const tw = w1 + w2, total = lg + 16 * s + tw, x0 = W / 2 - total / 2, y = LY.chip.y + (1 - p) * -24;
-  ctx.save(); ctx.globalAlpha = p * a;
-  ctx.drawImage(LOGO.full, x0, y - lg / 2, lg, lg);
-  const tx = x0 + lg + 16 * s;
-  font(ctx, 600, 15 * s); ctx.letterSpacing = '0.62em'; ctx.fillStyle = C.purple; ctx.fillText('APEX', tx + 2, y - 8 * s); ctx.letterSpacing = '0px';
-  font(ctx, 800, 30 * s); ctx.fillStyle = C.navy; ctx.fillText('BLENDED ', tx, y + 24 * s); ctx.fillStyle = C.coral; ctx.fillText('SCHOOL', tx + w1, y + 24 * s);
-  ctx.restore();
+  const [lw, lh] = LOGO.meta.size, h = 72 * LY.chip.s, w = h * lw / lh, y = LY.chip.y + (1 - p) * -24;
+  ctx.save(); ctx.globalAlpha = p * a; ctx.drawImage(LOGO.full, W / 2 - w / 2, y - h / 2, w, h); ctx.restore();
 }
 
 // ============================================================================
@@ -400,7 +400,7 @@ function drawHookText(ctx, t) {
       const p = E.outCubic(segP(s)); if (p <= 0) return;
       const pad = size * (TL.v === 2 ? 0.15 : 0.11), x0 = s.x0 - pad, x1 = lerp(x0, s.x1 + pad, p);
       ctx.save(); ctx.translate(x0, s.y); ctx.rotate(TL.v === 2 ? -0.004 : -0.012);
-      if (TL.v === 2) { ctx.fillStyle = C.coral; rr(ctx, 0, -size * 0.87, x1 - x0, size * 1.22, size * 0.15); ctx.fill(); } else { ctx.fillStyle = C.coral; rr(ctx, 0, -size * 0.8, x1 - x0, size * 1.02, size * 0.14); ctx.fill(); }
+      if (TL.v === 2) { ctx.fillStyle = C.acc; rr(ctx, 0, -size * 0.87, x1 - x0, size * 1.22, size * 0.15); ctx.fill(); } else { ctx.fillStyle = C.acc; rr(ctx, 0, -size * 0.8, x1 - x0, size * 1.02, size * 0.14); ctx.fill(); }
       ctx.restore();
       s.mx = x1;
     });
@@ -410,8 +410,8 @@ function drawHookText(ctx, t) {
     const e = E.outCubic(p);
     let col = C.navy;
     if (g.w.hl) {
-      if (deco === 'marker') { const s = segs.find(s => g.i >= s.start && g.i <= s.end); const k = s && s.mx ? clamp((s.mx - (g.x + g.w.w * 0.3)) / (g.w.w * 0.4)) : 0; col = mix(C.navy, C.white, k); }
-      else col = mix(C.navy, C.coral, E.outCubic(prog(t, TL.hlT, TL.hlT + 0.35)));
+      if (deco === 'marker') { const s = segs.find(s => g.i >= s.start && g.i <= s.end); const k = s && s.mx ? clamp((s.mx - (g.x + g.w.w * 0.3)) / (g.w.w * 0.4)) : 0; col = C.onAcc; }
+      else col = mix(C.navy, C.hlInk, E.outCubic(prog(t, TL.hlT, TL.hlT + 0.35)));
     }
     ctx.save(); ctx.globalAlpha = clamp(p * 3);
     ctx.translate(g.x + g.w.w / 2, g.y + (1 - e) * size * 0.5); ctx.rotate((1 - e) * 0.07);
@@ -474,7 +474,7 @@ function mShapes(ctx, t, X, v) {
     ctx.fillStyle = C.purple; rr(ctx, cx - bw / 2, by - bh / 2, bw, bh, u * 0.1); ctx.fill();
     ctx.fillStyle = C.lav; for (const sx of [-1, 1]) for (const sy of [-1, 1]) { ctx.beginPath(); ctx.arc(cx + sx * (bw / 2 - u * 0.09), by + sy * (bh / 2 - u * 0.09), u * 0.022, 0, TAU); ctx.fill(); }
     const m = E.inOutCubic(prog(t, 2.5, 3.05));
-    polarPath(ctx, hx, hy, R, a => lerp(1, shapeR(piece, a), m)); ctx.fillStyle = '#17102B'; ctx.fill();
+    polarPath(ctx, hx, hy, R, a => lerp(1, shapeR(piece, a), m)); ctx.fillStyle = '#001A4D'; ctx.fill();
     ctx.restore();
   }
   // destellos durante el cambio del hueco
@@ -536,7 +536,7 @@ function mSpotlight(ctx, t, X, v) {
       sc *= (va === 'crowd' ? 1 + 0.75 * k : 1 + 0.45 * k) * (1 + 0.03 * Math.sin((t - P) * 4) * prog(t, P + 1.4, P + 1.9));
       if (va === 'crowd') y += E.outCubic(prog(t, P, P + 0.5)) * u * 0.32;
       fill = mix(C.lavL, C.coral, kc);
-    } else { bob *= (1 - fade); fill = mix(C.lavL, '#EFEDF6', fade); const near = f.c === chosen.c && (va === 'crowd' ? f.r === chosen.r + 1 : f.r === chosen.r - 1); a = 1 - (near ? 1 : 0.55) * fade; }
+    } else { bob *= (1 - fade); fill = mix(C.lavL, '#EDF2F8', fade); const near = f.c === chosen.c && (va === 'crowd' ? f.r === chosen.r + 1 : f.r === chosen.r - 1); a = 1 - (near ? 1 : 0.55) * fade; }
     ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y - bob); ctx.scale(sc, sc);
     figure(ctx, 0, 0, s, fill, stroke, lw / sc * Math.min(1, sc)); ctx.restore();
   }
@@ -571,7 +571,7 @@ function mLockstep(ctx, t, X, v) {
   const x0 = cx - u * 0.9, x1 = cx + u * 0.9, ly = k => cy - u * 0.5 + k * u * 0.36, lw = u * 0.016;
   const lp = E.outCubic(prog(t, 0.1, 0.7));
   ctx.save(); ctx.setLineDash([u * 0.04, u * 0.035]); ctx.lineCap = 'round'; ctx.strokeStyle = C.lav; ctx.lineWidth = lw;
-  for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x0, ly(k)); ctx.lineTo(lerp(x0, x1, lp), ly(k)); ctx.stroke(); }
+  if (lp > 0.02) for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x0, ly(k)); ctx.lineTo(lerp(x0, x1, lp), ly(k)); ctx.stroke(); }
   ctx.restore();
   let steps = 0; for (let b = 1; b <= 4; b++) steps += E.inOutCubic(prog(t, b * B - 0.05, b * B + 0.16));
   const base = x0 + u * 0.14 + steps * u * 0.22, baseP = x0 + u * 0.14 + 4 * u * 0.22;
@@ -646,7 +646,7 @@ function mGrowth(ctx, t, X) {
   const sp = prog(t, P, P + 0.5);
   if (sp > 0) {
     const [x, y] = p3, e = E.outBack(sp, 2.6);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, u * 0.55); g.addColorStop(0, 'rgba(255,91,58,0.35)'); g.addColorStop(1, 'rgba(255,91,58,0)');
+    const g = ctx.createRadialGradient(x, y, 0, x, y, u * 0.55); g.addColorStop(0, 'rgba(1,156,222,0.3)'); g.addColorStop(1, 'rgba(1,156,222,0)');
     ctx.fillStyle = g; ctx.globalAlpha = clamp(sp * 2); ctx.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2); ctx.globalAlpha = 1;
     const rp = prog(t, P, P + 0.7);
     if (rp < 1) { ctx.strokeStyle = C.orange; ctx.lineWidth = u * 0.018; ctx.lineCap = 'round'; for (let k = 0; k < 8; k++) { const a = k / 8 * TAU, r0 = u * (0.2 + 0.25 * E.outCubic(rp)), r1 = r0 + u * 0.1 * (1 - rp); ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0); ctx.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); ctx.stroke(); } }
@@ -786,9 +786,9 @@ function mDesks(ctx, t, X) {
     const x = lerp(gx, tx, m), y = lerp(gy, ty, m) - Math.sin(Math.PI * m) * u * 0.05, rot = lerp(0, ang - Math.PI / 2, m); // la silla queda hacia afuera, el pupitre mira a la mesa
     const s = ap * (1 + pulse);
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
-    ctx.fillStyle = mix('#E3E0EC', C.lavL, m); ctx.strokeStyle = C.navy; ctx.lineWidth = lw / s;
+    ctx.fillStyle = mix('#E1E8F1', C.lavL, m); ctx.strokeStyle = C.navy; ctx.lineWidth = lw / s;
     rr(ctx, -u * 0.05, u * 0.06, u * 0.1, u * 0.05, u * 0.012); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = mix('#F3F1F7', C.white, m); rr(ctx, -u * 0.11, -u * 0.05, u * 0.22, u * 0.1, u * 0.016); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = mix('#F2F5FA', C.white, m); rr(ctx, -u * 0.11, -u * 0.05, u * 0.22, u * 0.1, u * 0.016); ctx.fill(); ctx.stroke();
     ctx.restore();
   }
 }
@@ -820,7 +820,7 @@ function iconCircle(ctx, x, y, r, name, sc = 1) {
   ICONS[name](ctx); ctx.restore();
 }
 function purpleBg(ctx, t) {
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#34265E'); g.addColorStop(1, '#1D1330');
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0A3C98'); g.addColorStop(1, '#001A55');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = 'rgba(255,255,255,0.055)'; const s = 54;
   for (let y = s / 2; y < H; y += s) for (let x = s / 2; x < W; x += s) { ctx.beginPath(); ctx.arc(x, y, 2.4, 0, TAU); ctx.fill(); }
@@ -835,10 +835,10 @@ function drawTab(ctx, t, top, h, size, pad, textY) {
   if (tp <= 0) return;
   font(ctx, 400, size, 'Scr'); const tw = ctx.measureText(COPY.tab).width, tabW = tw + pad * 2;
   const x0 = -tabW * (1 - tp) - tabW * te, r = h * 0.2;
-  ctx.fillStyle = C.coral; ctx.beginPath(); ctx.moveTo(x0 - 20, top - 20); ctx.lineTo(x0 + tabW, top - 20); ctx.lineTo(x0 + tabW, top + h - r); ctx.quadraticCurveTo(x0 + tabW, top + h, x0 + tabW - r, top + h); ctx.lineTo(x0 - 20, top + h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(x0 - 20, top - 20); ctx.lineTo(x0 + tabW, top - 20); ctx.lineTo(x0 + tabW, top + h - r); ctx.quadraticCurveTo(x0 + tabW, top + h, x0 + tabW - r, top + h); ctx.lineTo(x0 - 20, top + h); ctx.closePath(); ctx.fill();
   const wp = E.inOutSine(prog(t, TL.tabT + 0.2, TL.tabT + 0.8));
   ctx.save(); ctx.beginPath(); ctx.rect(x0 + pad - 10, top, (tw + 40) * wp, h); ctx.clip();
-  ctx.fillStyle = C.white; ctx.fillText(COPY.tab, x0 + pad, top + textY); ctx.restore();
+  ctx.fillStyle = C.onAcc; ctx.fillText(COPY.tab, x0 + pad, top + textY); ctx.restore();
 }
 function drawBenefits(ctx, t) {
   purpleBg(ctx, t);
@@ -888,8 +888,8 @@ function drawRows(ctx, t) {
     } else if (row.type === 'plus') {
       const p = E.outBack(prog(t, row.t, row.t + 0.4), 2.5); if (p > 0) {
         const x = S.x + S.w / 2, y = row.y + row.h / 2, r = row.h * 0.46 * p;
-        ctx.save(); ctx.translate(x, y); ctx.rotate((1 - p) * 1.5); ctx.fillStyle = C.coral; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
-        ctx.fillStyle = C.white; const a = r * 0.55, b = r * 0.14; ctx.fillRect(-a, -b, a * 2, b * 2); ctx.fillRect(-b, -a, b * 2, a * 2); ctx.restore();
+        ctx.save(); ctx.translate(x, y); ctx.rotate((1 - p) * 1.5); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+        ctx.fillStyle = C.onAcc; const a = r * 0.55, b = r * 0.14; ctx.fillRect(-a, -b, a * 2, b * 2); ctx.fillRect(-b, -a, b * 2, a * 2); ctx.restore();
       }
     } else if (row.type === 'icons') {
       row.icons.forEach((ic, k) => {
@@ -905,51 +905,53 @@ function drawRows(ctx, t) {
 // ============================================================================
 //  CIERRE: logo que se construye + CTA
 // ============================================================================
+// El wordmark se arma por piezas: "COLEGIO" se descubre, las letras de ESTEFANÍA caen una por una, la línea se
+// traza en globeT y las 3 notas del logo sonoro (starT) son: destello al final de la línea, destello arriba y el acento de la Í.
 function drawLogoBuild(ctx, t) {
-  const L = LY.logo, lt = (t - TL.ctaT) * TL.logoSpeed, M = LOGO.meta, Ly = LOGO.layers;
+  const L = LY.logo, lt = (t - TL.ctaT) * TL.logoSpeed, M = LOGO.meta, Ly = LOGO.layers, [lw, lh] = M.size;
   const breath = 1 + 0.012 * Math.sin((t - TL.ctaT - 2) * 2.4) * prog(t, TL.ctaT + 2, TL.ctaT + 2.6);
-  ctx.save(); ctx.translate(L.cx, L.cy); ctx.scale(L.s * breath, L.s * breath); ctx.translate(-400, -400);
-  const wp = E.outCubic(prog(lt, 0.05, 0.95)), sw = wp * Math.PI * 1.04, ox = 400, oy = 440;
-  if (wp > 0) {
-    ctx.save(); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, 760, Math.PI / 2, Math.PI / 2 + sw, false); ctx.closePath(); ctx.clip(); ctx.drawImage(Ly.laurel_l, 0, 0); ctx.restore();
-    ctx.save(); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, 760, Math.PI / 2 - sw, Math.PI / 2, false); ctx.closePath(); ctx.clip(); ctx.drawImage(Ly.laurel_r, 0, 0); ctx.restore();
+  ctx.save(); ctx.translate(L.cx, L.cy); ctx.scale(L.s * breath, L.s * breath); ctx.translate(-lw / 2, -lh / 2);
+  const cp = E.outCubic(prog(lt, 0.05, 0.55)), cb = M.colegio;
+  if (cp > 0) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, cb[0] + (cb[2] - cb[0] + 30) * cp, lh); ctx.clip(); ctx.globalAlpha = clamp(cp * 2); ctx.drawImage(Ly.colegio, 0, (1 - cp) * 24); ctx.restore(); }
+  for (let i = 0; i < 9; i++) {
+    const p = prog(lt, 0.15 + i * 0.065, 0.55 + i * 0.065); if (p <= 0) continue;
+    const e = E.outBack(p, 2.2), b = M[`l${i}`], bx = (b[0] + b[2]) / 2, by = b[3];
+    ctx.save(); ctx.globalAlpha = clamp(p * 4); ctx.translate(bx, by - (1 - E.outCubic(p)) * 120); ctx.scale(lerp(0.6, 1, e), e); ctx.translate(-bx, -by); ctx.drawImage(Ly[`l${i}`], 0, 0); ctx.restore();
   }
-  const ip = prog(lt, 0.25, 0.7);
-  if (ip > 0) { const e = E.outBack(ip, 1.8); ctx.save(); ctx.translate(400, 530); ctx.scale(lerp(0.3, 1, e), e); ctx.translate(-400, -530); ctx.drawImage(Ly.icon, 0, 0); ctx.restore(); }
-  const gp = prog(t, TL.globeT, TL.globeT + 0.45);
+  const lb = M.line, gp = E.inOutCubic(prog(t, TL.globeT, TL.globeT + 0.45));
   if (gp > 0) {
-    const [gx, gy, gr] = M.globe_c, e = E.outBack(gp, 2.4);
-    ctx.save(); ctx.translate(gx, gy); ctx.rotate((1 - E.outCubic(gp)) * -1.4); ctx.scale(e, e); ctx.translate(-gx, -gy); ctx.drawImage(Ly.globe, 0, 0); ctx.restore();
-    const op = prog(t, TL.globeT, TL.globeT + 0.7); if (op < 1) { ctx.strokeStyle = C.orange; ctx.globalAlpha = 1 - op; ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(gx, gy, gr * (1.2 + op * 0.9), gr * (0.45 + op * 0.4), -0.35, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
+    const x1 = lerp(lb[0], lb[2] + 4, gp);
+    ctx.save(); ctx.beginPath(); ctx.rect(lb[0] - 4, 0, x1 - lb[0] + 4, lh); ctx.clip(); ctx.drawImage(Ly.line, 0, 0); ctx.restore();
+    if (gp < 1) sparkle(ctx, x1, (lb[1] + lb[3]) / 2, 34 * Math.sin(Math.PI * gp) + 8, C.coral);
   }
-  const tp = E.outCubic(prog(lt, 0.9, 1.3));
-  if (tp > 0) { ctx.globalAlpha = tp; ctx.drawImage(Ly.est, 0, (1 - tp) * 16); ctx.drawImage(Ly.y2020, 0, (1 - tp) * 16); ctx.globalAlpha = 1; }
-  TL.starT.forEach((st, i) => {
-    const p = prog(t, st, st + 0.42); if (p <= 0) return;
-    const [sx, sy] = M[`star${i}_c`], e = E.outBack(p, 3);
-    ctx.save(); ctx.translate(sx, sy); ctx.rotate((1 - E.outCubic(p)) * -1.6); ctx.scale(e, e); ctx.translate(-sx, -sy); ctx.drawImage(Ly[`star${i}`], 0, 0); ctx.restore();
-    const q = prog(t, st, st + 0.45); if (q < 1) { ctx.strokeStyle = C.orange; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.globalAlpha = 1 - q; for (let k = 0; k < 6; k++) { const a = k / 6 * TAU - Math.PI / 2, r0 = 40 + 50 * E.outCubic(q), r1 = r0 + 26 * (1 - q); ctx.beginPath(); ctx.moveTo(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0); ctx.lineTo(sx + Math.cos(a) * r1, sy + Math.sin(a) * r1); ctx.stroke(); } ctx.globalAlpha = 1; }
+  const burst = (x, y, q, col) => { if (q <= 0 || q >= 1) return; ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.globalAlpha = 1 - q; for (let k = 0; k < 6; k++) { const a = k / 6 * TAU - Math.PI / 2, r0 = 34 + 54 * E.outCubic(q), r1 = r0 + 30 * (1 - q); ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0); ctx.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); ctx.stroke(); } ctx.restore(); };
+  const spots = [[lb[2] + 10, (lb[1] + lb[3]) / 2 - 2, C.coral], [lb[2] - 150, lb[1] - 80, C.acc]];
+  spots.forEach(([x, y, col], i) => {
+    const st = TL.starT[i], p = prog(t, st, st + 0.4); if (p <= 0) return;
+    const s0 = 30 * E.outBack(p, 3) * (1 + 0.12 * Math.sin((t - st) * 5)), fade = 1 - prog(t, st + 1.4, st + 1.8) * 0.65;
+    sparkle(ctx, x, y, s0, col, fade); burst(x, y, prog(t, st, st + 0.45), col);
   });
+  const ap = prog(t, TL.starT[2], TL.starT[2] + 0.35), ab = M.accent;
+  if (ap > 0) {
+    const ax = (ab[0] + ab[2]) / 2, ay = (ab[1] + ab[3]) / 2, e = E.outBack(ap, 3);
+    ctx.save(); ctx.translate(ax, ay - (1 - E.outCubic(ap)) * 90); ctx.rotate((1 - E.outCubic(ap)) * -1.2); ctx.scale(e, e); ctx.translate(-ax, -ay); ctx.drawImage(Ly.accent, 0, 0); ctx.restore();
+    burst(ax, ay, prog(t, TL.starT[2] + 0.12, TL.starT[2] + 0.6), C.acc);
+  }
   ctx.restore();
 }
-function drawLockup(ctx, t) {
-  const y0 = LY.lock.y, sc = FMT === 'reel' ? 1 : 0.86;
-  const lines = [
-    { k: 'apex', size: 28 * sc, gap: 0 },
-    { k: 'blended', size: 72 * sc, gap: 14 * sc },
-    { k: 'school', size: 72 * sc, gap: -6 * sc },
-    { k: 'tag', size: 19 * sc, gap: 22 * sc },
-  ];
-  let y = y0;
-  lines.forEach((L, i) => {
-    y += L.gap + L.size * (i === 0 ? 0 : 0.92);
+function drawLockup(ctx, t) { // oferta educativa bajo el wordmark
+  const sc = FMT === 'reel' ? 1 : 0.86, size = 30 * sc;
+  let y = LY.lock.y;
+  // filete amarillo de marca
+  const rp = E.outCubic(prog(t, TL.lockT - 0.1, TL.lockT + 0.35)), rw = 120 * sc * rp;
+  if (rp > 0) { ctx.fillStyle = C.acc; rr(ctx, W / 2 - rw / 2, y - 8 * sc, rw, 10 * sc, 5 * sc); ctx.fill(); }
+  y += 30 * sc;
+  BRAND.tag.forEach((txt, i) => {
+    y += size * 1.45;
     const p = E.outCubic(prog(t, TL.lockT + i * 0.08, TL.lockT + 0.45 + i * 0.08)); if (p <= 0) return;
-    ctx.save(); ctx.beginPath(); ctx.rect(0, y - L.size * 1.0, W, L.size * 1.25); ctx.clip();
-    const dy = (1 - p) * L.size * 1.1; ctx.textAlign = 'center';
-    if (L.k === 'apex') { font(ctx, 600, L.size); ctx.letterSpacing = '0.7em'; ctx.fillStyle = C.purple; ctx.fillText('APEX', W / 2 + L.size * 0.35, y + dy); }
-    else if (L.k === 'blended') { font(ctx, 800, L.size); ctx.fillStyle = C.navy; ctx.fillText('BLENDED', W / 2, y + dy); }
-    else if (L.k === 'school') { font(ctx, 800, L.size); ctx.fillStyle = C.coral; ctx.fillText('SCHOOL', W / 2, y + dy); }
-    else { font(ctx, 600, L.size); ctx.letterSpacing = '0.18em'; ctx.fillStyle = C.ink2; ctx.fillText('INNOVATING TOWARDS A BIGGER FUTURE', W / 2 + L.size * 0.09, y + dy); }
+    ctx.save(); ctx.beginPath(); ctx.rect(0, y - size * 1.0, W, size * 1.3); ctx.clip();
+    font(ctx, 600, size); ctx.letterSpacing = '0.16em'; ctx.textAlign = 'center'; ctx.fillStyle = C.navy;
+    ctx.fillText(txt, W / 2 + size * 0.08, y + (1 - p) * size * 1.1);
     ctx.letterSpacing = '0px'; ctx.textAlign = 'left'; ctx.restore();
   });
 }
@@ -963,13 +965,13 @@ function drawPill(ctx, t) {
     if (q > 0 && q < 1) { ctx.strokeStyle = C.coral; ctx.globalAlpha = 1 - q; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ax2, P.cy, h * 0.4 + q * h * 0.35, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
   });
   ctx.save(); ctx.globalAlpha = clamp(p * 3); ctx.translate(W / 2, P.cy); ctx.scale(s, s); ctx.translate(-W / 2, -P.cy);
-  ctx.shadowColor = 'rgba(37,23,46,0.35)'; ctx.shadowBlur = 34; ctx.shadowOffsetY = 14;
+  ctx.shadowColor = 'rgba(0,30,94,0.35)'; ctx.shadowBlur = 34; ctx.shadowOffsetY = 14;
   ctx.fillStyle = C.deep; rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.shadowColor = 'transparent';
   font(ctx, 700, PILL.size); ctx.fillStyle = C.white; ctx.fillText(COPY.cta, x + 52, P.cy + PILL.size * 0.36);
   const ar = h * 0.36, ax = x + w - h * 0.5 - 6, ay = P.cy;
-  ctx.fillStyle = C.coral; ctx.beginPath(); ctx.arc(ax, ay, ar, 0, TAU); ctx.fill();
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(ax, ay, ar, 0, TAU); ctx.fill();
   const nud = Math.abs(Math.sin(Math.PI * (t - TL.pillT) / TL.B)) * ar * 0.16 * prog(t, TL.pillT + 0.4, TL.pillT + 0.7);
-  ctx.strokeStyle = C.white; ctx.lineWidth = ar * 0.16; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = C.onAcc; ctx.lineWidth = ar * 0.16; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(ax - ar * 0.42 + nud, ay); ctx.lineTo(ax + ar * 0.42 + nud, ay); ctx.moveTo(ax + ar * 0.08 + nud, ay - ar * 0.34); ctx.lineTo(ax + ar * 0.42 + nud, ay); ctx.lineTo(ax + ar * 0.08 + nud, ay + ar * 0.34); ctx.stroke();
   ctx.restore();
   TL.taps.forEach(tp => {
@@ -979,8 +981,8 @@ function drawPill(ctx, t) {
 }
 function drawCTA(ctx, t) {
   paper(ctx, t, false);
-  const L = LY.logo, gr = 460 * L.s * 1.1;
-  const g = ctx.createRadialGradient(L.cx, L.cy, 0, L.cx, L.cy, gr); g.addColorStop(0, 'rgba(135,134,193,0.28)'); g.addColorStop(1, 'rgba(135,134,193,0)');
+  const L = LY.logo, gr = LOGO.meta.size[0] * 0.5 * L.s * 1.15;
+  const g = ctx.createRadialGradient(L.cx, L.cy, 0, L.cx, L.cy, gr); g.addColorStop(0, 'rgba(1,156,222,0.2)'); g.addColorStop(1, 'rgba(1,156,222,0)');
   ctx.fillStyle = g; ctx.fillRect(L.cx - gr, L.cy - gr, gr * 2, gr * 2);
   drawLogoBuild(ctx, t); drawLockup(ctx, t); drawPill(ctx, t);
 }

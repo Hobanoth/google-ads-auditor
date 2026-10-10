@@ -1,7 +1,10 @@
 // uso:
 //   node render_ads.js stills <outdir> <copyIdx> <fmt> <t1,t2,...> [v]   (tiempos en segundos; v=1|2)
 //   node render_ads.js batch  <outdir> <workers> <jobs: "i:fmt[:v],i:fmt[:v],...">
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+// playwright: el del proyecto (npm i) o el global de la máquina de Apex · CHROME / FFMPEG por variable de entorno si hace falta
+const { chromium } = (() => { try { return require('playwright'); } catch { return require('/opt/node22/lib/node_modules/playwright'); } })();
+const FFMPEG = process.env.FFMPEG || 'ffmpeg';
+const LAUNCH = process.env.CHROME ? { executablePath: process.env.CHROME } : {};
 const { spawn } = require('child_process');
 const path = require('path'), fs = require('fs');
 const ARGS = ['--allow-file-access-from-files', '--disable-gpu']; // raster 2D por CPU: ~6x más rápido que SwiftShader
@@ -9,14 +12,14 @@ async function openPage(browser, fmt) {
   const page = await browser.newPage({ viewport: { width: 1080, height: fmt === 'reel' ? 1920 : 1080 } });
   page.on('pageerror', e => { console.error('[pageerror]', e.message); process.exit(1); });
   page.on('console', m => console.log('[page]', m.text()));
-  await page.goto('file://' + path.resolve(__dirname, 'ads.html') + `?fmt=${fmt}`);
+  await page.goto(require('url').pathToFileURL(path.resolve(__dirname, 'ads.html')).href + `?fmt=${fmt}`);
   await page.evaluate(() => window.ready);
   return page;
 }
 (async () => {
   const [mode, outdir] = process.argv.slice(2);
   fs.mkdirSync(outdir, { recursive: true });
-  const browser = await chromium.launch({ args: ARGS });
+  const browser = await chromium.launch({ args: ARGS, ...LAUNCH });
   if (mode === 'stills') {
     const [, , , , idx, fmt, ts, vv] = process.argv;
     const v = +(vv || 1);
@@ -31,7 +34,7 @@ async function openPage(browser, fmt) {
     const jobs = jobsStr.split(',').map(s => { const [i, f, v] = s.split(':'); return { i: +i, fmt: f, v: +(v || 1) }; });
     let next = 0;
     const worker = async (wid) => {
-      const browser = await chromium.launch({ args: ARGS }); // un navegador por worker = render en paralelo real
+      const browser = await chromium.launch({ args: ARGS, ...LAUNCH }); // un navegador por worker = render en paralelo real
       const pages = {};
       while (next < jobs.length) {
         const job = jobs[next++];
@@ -39,7 +42,7 @@ async function openPage(browser, fmt) {
         const page = pages[job.fmt];
         const info = await page.evaluate(([i, f, v]) => window.setup(i, f, 3, v), [job.i, job.fmt, job.v]);
         const out = `${outdir}/${info.id}_${job.fmt}${job.v === 2 ? '_v2' : ''}.mp4`;
-        const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', '30', '-c:v', 'png', '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '15', '-pix_fmt', 'yuv420p', '-r', '30', out], { stdio: ['pipe', 'inherit', 'inherit'] });
+        const ff = spawn(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', '30', '-c:v', 'png', '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '15', '-pix_fmt', 'yuv420p', '-r', '30', out], { stdio: ['pipe', 'inherit', 'inherit'] });
         const t0 = Date.now();
         for (let f = 0; f < info.frames; f++) {
           const url = await page.evaluate(f => { window.renderFrame(f); return document.getElementById('c').toDataURL('image/png'); }, f);
