@@ -1,0 +1,6 @@
+# renders e intermedios (los videos finales se entregan aparte)
+work/
+out/
+# material del cliente (logo y capturas): no se versiona
+assets/*.jpg
+assets/*.png
