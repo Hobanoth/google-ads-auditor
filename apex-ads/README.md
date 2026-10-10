@@ -41,7 +41,7 @@ Cambios que aplican a todos:
 - Los CTA del botón van sin punto final.
 - No se agregó ninguna afirmación nueva. Todo el texto sale de los copys enviados.
 
-## Versión 2: gancho largo (07, 11, 01 y 04)
+## Versión 2: gancho largo (los 12 copys)
 
 Esta versión responde al comentario del estratega: en la v1 la pregunta solo estaba completa unos 3 segundos.
 
@@ -51,7 +51,14 @@ Esta versión responde al comentario del estratega: en la v1 la pregunta solo es
 | **7.5–12.5 s** | La pregunta **sube y se queda como encabezado**. Debajo entra el panel morado con la pestaña "En Apex" y los beneficios, así que la pregunta nunca sale de pantalla. |
 | **12.5–15 s** | Cierre de marca más corto: el logo, las 3 estrellas y el CTA. |
 
-Los archivos están en `out/v2/` y se llaman `APEX_<copy>_V2-GANCHO-LARGO_<formato>.mp4`. La idea es compararlos contra la v1 del mismo copy, con el mismo público y presupuesto. La métrica que decide el gancho es el porcentaje de impresiones que ve 3 segundos o más.
+Los archivos están en `out/v2/` (24 videos) y se llaman `APEX_<copy>_V2-GANCHO-LARGO_<formato>.mp4`.
+
+Antes de entregarla, la v2 pasó **3 rondas de revisión visual**, con un revisor por copy y fotogramas en 0, 2.5, 4.6, 6.9, 7.4, 10.2 y 14.8 s en los dos formatos. Se corrigió todo lo que encontraron:
+- **Cortes de línea:** ninguna línea termina en "a", "de", "una", "la" o "tu", la frase resaltada no se parte y no quedan palabras cortas solas.
+- **Separación:** la ilustración guarda distancia de la pregunta.
+- **Resaltado:** el marcador cubre acentos y descendentes, y el óvalo deja aire con las palabras vecinas.
+- **Panel:** se reparte entre la frase y las tarjetas, las tarjetas tienen el mismo tamaño de texto y un padding parejo, y los íconos tienen el mismo peso visual.
+- **Transición y cierre:** el mini-logo y los garabatos se apagan antes de que la pregunta suba, y el cierre tiene aire entre el lema y el botón. La idea es compararlos contra la v1 del mismo copy, con el mismo público y presupuesto. La métrica que decide el gancho es el porcentaje de impresiones que ve 3 segundos o más.
 
 ```bash
 node src/synth_ads.js <n> work/aud/a<NN>_v2.wav 2
