@@ -115,16 +115,18 @@ function wrap(ctx, words, size, maxW, wf) {
   for (const L of lines) { let x = 0; for (const w of L.words) { w.x = x; x += w.w + sp; } }
   return { lines, sp };
 }
+const WEAK = new Set(['a', 'y', 'o', 'e', 'u', 'de', 'la', 'el', 'en', 'un', 'una', 'su', 'sus', 'al', 'del', 'los', 'las', 'que', 'con', 'por', 'tu', 'se', 'no', 'lo']);
 // Corte de líneas óptimo (programación dinámica): líneas parejas, sin "viudas" y sin partir la frase resaltada.
-function layoutDP(ctx, words, size, maxW, wf, maxLines) {
-  font(ctx, wf({}), size); const sp = ctx.measureText(' ').width;
+function layoutDP(ctx, words, size, maxW, wf, maxLines, hlPad = 0) {
+  font(ctx, wf({}), size); const sp = ctx.measureText(' ').width, pad = hlPad * size;
   const ws = words.map(w => ({ ...w, w: measureW(ctx, w, size, wf) }));
+  if (pad) ws.forEach((w, k) => { if (w.hl && !(ws[k - 1] && ws[k - 1].hl)) w.padL = pad; if (w.hl && !(ws[k + 1] && ws[k + 1].hl)) w.padR = pad; });
   const units = [];
   for (let i = 0; i < ws.length;) {
     let j = i, uw = ws[i].w;
     if (ws[i].hl) while (j + 1 < ws.length && ws[j + 1].hl) { j++; uw += sp + ws[j].w; }
-    if (j > i && uw > maxW) { for (let k = i; k <= j; k++) units.push({ a: k, b: k, w: ws[k].w }); }
-    else units.push({ a: i, b: j, w: uw });
+    if (j > i && uw + (ws[i].padL || 0) + (ws[j].padR || 0) > maxW) { for (let k = i; k <= j; k++) units.push({ a: k, b: k, w: ws[k].w + (ws[k].padL || 0) + (ws[k].padR || 0) }); }
+    else units.push({ a: i, b: j, w: uw + (ws[i].padL || 0) + (ws[j].padR || 0) });
     i = j + 1;
   }
   const n = units.length, INF = 1e30;
@@ -136,6 +138,7 @@ function layoutDP(ctx, words, size, maxW, wf, maxLines) {
     if (dp[k - 1][p] >= INF) continue;
     const w = lw(p, j); if (w > maxW + 0.5) continue;
     let c = (maxW - w) * (maxW - w);
+    if (j < n) { const lw_ = ws[units[j - 1].b].text.toLowerCase().replace(/[¿?¡!,.]/g, ''); if (WEAK.has(lw_)) c += 3e6; } // no dejar "a", "de", "una"… colgando
     const lone = j - p === 1 && units[p].a === units[p].b; // una sola palabra en la línea
     if (lone && j === n && k > 1 && w < 0.5 * maxW) c += 1e15; // viuda al final
     else if (lone && !(k === 1 && j === n) && w < 0.4 * maxW) c += 1e15; // palabra corta aislada a media frase
@@ -146,12 +149,36 @@ function layoutDP(ctx, words, size, maxW, wf, maxLines) {
   const cuts = []; for (let k = bk, j = n; k > 0; j = pv[k][j], k--) cuts.unshift([pv[k][j], j]);
   const lines = cuts.map(([p, q]) => {
     const lws = []; for (let u = p; u < q; u++) for (let k = units[u].a; k <= units[u].b; k++) lws.push({ ...ws[k] });
-    let x = 0; for (const w of lws) { w.x = x; x += w.w + sp; }
+    let x = 0; for (const w of lws) { x += w.padL || 0; w.x = x; x += w.w + (w.padR || 0) + sp; }
     return { words: lws, w: x - sp };
   });
   return { lines, sp, orphan: dp[bk][n] >= 1e15 };
 }
 function fit(ctx, words, bw, bh, o) {
+  if (o.pick === 'quality') { // puntaje: tamaño − penalizaciones (líneas extra, finales débiles, palabra corta aislada)
+    const linePen = o.linePen ?? 0.15, weakPen = o.weakPen ?? 4, lonePen = o.lonePen ?? 12;
+    const weakOf = L => L.slice(0, -1).filter(l => WEAK.has(l.words[l.words.length - 1].text.toLowerCase().replace(/[¿?¡!,.]/g, ''))).length;
+    let best = null;
+    for (let size = o.max; size >= o.min; size -= 2) {
+      const maxLines = Math.min(o.maxLines || 99, Math.floor(bh / (size * o.lh) + 1e-6)); if (maxLines < 1) continue;
+      const r = layoutDP(ctx, words, size, bw, o.wf, maxLines, o.hlPad || 0); if (!r || r.orphan) continue;
+      const L = r.lines, weak = weakOf(L);
+      const lone = L.length > 1 ? L.filter(l => l.words.length === 1 && l.w < 0.45 * bw).length : 0;
+      const score = size * (1 - linePen * Math.max(0, L.length - 3)) - weakPen * weak - lonePen * lone;
+      if (!best || score > best.score) best = { score, size, r, weak };
+    }
+    if (best) {
+      let r = best.r;
+      if (o.balance && r.lines.length > 1) { // bloque parejo sin empeorar cortes ni partir el resaltado
+        font(ctx, o.wf({}), best.size); const sp = ctx.measureText(' ').width; let run = 0, cur = -1;
+        for (const w of words) { const ww = measureW(ctx, w, best.size, o.wf); if (w.hl) { cur = cur < 0 ? ww : cur + sp + ww; run = Math.max(run, cur); } else cur = -1; }
+        const k = r.lines.length; let lo = Math.max(bw * 0.35, run <= bw ? run + 1 : 0), hi = bw;
+        for (let it = 0; it < 14; it++) { const mid = (lo + hi) / 2, t = layoutDP(ctx, words, best.size, mid, o.wf, k, o.hlPad || 0); if (t && !t.orphan && t.lines.length === k && weakOf(t.lines) <= best.weak) hi = mid; else lo = mid; }
+        const t = layoutDP(ctx, words, best.size, hi, o.wf, k, o.hlPad || 0); if (t && weakOf(t.lines) <= best.weak) r = t;
+      }
+      return { size: best.size, lh: o.lh, lines: r.lines, sp: r.sp };
+    }
+  }
   for (let size = o.max; size >= o.min; size -= 2) {
     const maxLines = Math.min(o.maxLines || 99, Math.floor(bh / (size * o.lh) + 1e-6));
     if (maxLines < 1) continue;
@@ -177,7 +204,7 @@ function makeLayout(fmt) {
     ill: { cx: 540, cy: 1060, u: 405 }, grid: 60,
     tab: { h: 455, size: 108, textY: 392, pad: 70 },
     stack: { x: 78, y: 500, w: 924, h: 760 }, card: { h: 152, size: 52 }, st: { max: 90, min: 46 }, plusH: 70, gap: 38,
-    logo: { cx: 540, cy: 600, s: 0.7 }, lock: { y: 905 }, pill: { cy: 1170, h: 124, size: 48, maxW: 920 },
+    logo: { cx: 540, cy: 590, s: 0.7 }, lock: { y: 888 }, pill: { cy: 1186, h: 124, size: 48, maxW: 920 },
     bar: { y: 1475, w: 780, h: 116 }, doodles: 'reel',
   };
   return {
@@ -193,35 +220,51 @@ function makeLayout(fmt) {
 function buildRows(ctx, card, stc, gap, plusH, stShare) {
   const S = STK; ROWS = [];
   const onlySt = COPY.items.filter(i => i.card).length === 0;
+  const typeOf = it => it.st ? 'st' : it.card ? 'card' : it.plus ? 'plus' : 'icons';
+  const gapT = (a, b) => a === 'plus' || b === 'plus' ? 6 : (a === 'st' || b === 'st') && TL.v === 2 ? gap * 1.6 : gap;
+  if (stShare === 'auto') { // alto libre = panel − filas que no son frase − espacios reales
+    let other = 0, nst = 0;
+    COPY.items.forEach((it, k) => { if (it.st) nst++; else other += it.card ? card.h : it.plus ? plusH : card.h * (TL.v === 2 ? 1.2 : 1.25); if (k) other += gapT(typeOf(COPY.items[k - 1]), typeOf(it)); });
+    stShare = Math.max(0.2, (S.h - other - 2) / Math.max(1, nst) / S.h);
+  }
   COPY.items.forEach((it, k) => {
     const row = { t: TL.items[k].t, k };
     if (it.st) {
       const words = APEX_TL.parseRich(it.st);
       const mx = onlySt ? stc.max * 1.12 : stc.max;
-      row.type = 'st'; row.f = fit(ctx, words, S.w, S.h * (stShare || (onlySt ? 0.62 : 0.42)), { max: Math.round(mx), min: stc.min, lh: 1.14, balance: false, wf: w => w.hl ? 800 : 700 });
+      row.type = 'st'; row.f = fit(ctx, words, S.w, S.h * (stShare || (onlySt ? 0.62 : 0.42)), { max: Math.round(mx), min: stc.min, lh: 1.14, balance: false, maxLines: TL.v === 2 ? 4 : 0, pick: TL.v === 2 ? 'quality' : null, wf: w => w.hl ? 800 : 700 });
       row.h = row.f.lines.length * row.f.size * row.f.lh;
     } else if (it.card) {
       row.type = 'card'; row.icon = it.card; row.h = card.h;
-      const words = APEX_TL.parseRich(it.text), inner = S.w - card.h * 0.62 - 64;
+      const words = APEX_TL.parseRich(it.text), inner = S.w - card.h * 0.8 - 34 - (TL.v === 2 ? 56 : 30);
       let size = card.size, r;
       for (; size > 24; size -= 1) { r = wrap(ctx, words, size, 1e9, w => w.b ? 700 : 500); if (r.lines[0].w <= inner) break; }
       row.size = size; row.line = r.lines[0];
     } else if (it.plus) { row.type = 'plus'; row.h = plusH; }
-    else if (it.icons) { row.type = 'icons'; row.icons = it.icons; row.h = card.h * 1.25; }
+    else if (it.icons) { row.type = 'icons'; row.icons = it.icons; row.h = card.h * (TL.v === 2 ? 1.2 : 1.25); }
     ROWS.push(row);
   });
-  let total = 0; ROWS.forEach((r, i) => { total += r.h + (i ? (r.type === 'plus' || ROWS[i - 1].type === 'plus' ? 6 : gap) : 0); });
+  const gapOf = i => gapT(ROWS[i - 1].type, ROWS[i].type);
+  let total = 0; ROWS.forEach((r, i) => { total += r.h + (i ? gapOf(i) : 0); });
   ROWS.total = total;
-  let y = S.y + Math.max(0, (S.h - total) / 2);
-  ROWS.forEach((r, i) => { if (i) y += (r.type === 'plus' || ROWS[i - 1].type === 'plus' ? 6 : gap); r.y = y; y += r.h; });
+  let y = S.y + (TL.v === 2 ? Math.min(Math.max(0, S.h - total) * 0.1, 12) : Math.max(0, (S.h - total) * 0.5));
+  ROWS.forEach((r, i) => { if (i) y += gapOf(i); r.y = y; y += r.h; });
 }
 
-let HOOK, ROWS, TAB, PILL, DOODLES, CONF, LOCK, STK, HDR, PANEL;
+let HOOK, ROWS, TAB, PILL, DOODLES, CONF, LOCK, STK, HDR, PANEL, ILL;
 function prepare() {
   const ctx = sctx;
   // gancho
-  HOOK = fit(ctx, TL.words, LY.hook.w, LY.hook.h, { max: LY.hook.max, min: LY.hook.min, lh: 1.13, balance: true, maxLines: 4, wf: w => w.hl ? 800 : 700 });
+  const hookLh = TL.v === 2 ? (COPY.deco === 'circle' ? 1.24 : COPY.deco === 'marker' ? 1.19 : 1.13) : 1.13;
+  HOOK = fit(ctx, TL.words, LY.hook.w, LY.hook.h, { max: LY.hook.max, min: LY.hook.min, lh: hookLh, balance: true, maxLines: 4, pick: TL.v === 2 ? 'quality' : null, linePen: 0, weakPen: 10, lonePen: 12, hlPad: TL.v === 2 && COPY.deco === 'circle' ? 0.14 : 0, wf: w => w.hl ? 800 : 700 });
   { const g = hookGeo(); HOOK.bottom = g.geo[g.geo.length - 1].y + g.size * 0.4; }
+  ILL = { ...LY.ill };
+  if (TL.v === 2) { // extensión típica de las metáforas: [-0.62u, +0.75u]
+    const bandTop = HOOK.bottom + 70, bandBot = FMT === 'reel' ? 1500 : 1066;
+    if (bandBot - bandTop < 1.37 * ILL.u) ILL.u = (bandBot - bandTop) / 1.37;
+    const lo = bandTop + 0.62 * ILL.u, hi = bandBot - 0.75 * ILL.u;
+    ILL.cy = FMT === 'reel' ? Math.min(Math.max(ILL.cy, lo), hi) : lo + (hi - lo) * 0.35;
+  }
   // pestaña
   font(ctx, 400, LY.tab.size, 'Scr'); TAB = { tw: ctx.measureText(COPY.tab).width }; TAB.w = TAB.tw + LY.tab.pad * 2;
   if (TL.v === 2) {
@@ -233,12 +276,15 @@ function prepare() {
     PANEL.textY = PANEL.tabH * 0.7;
     const bottom = reel ? 1255 : 1042, sy = PANEL.top + PANEL.tabH + (reel ? 30 : 22);
     STK = { x: reel ? 78 : 112, y: sy, w: reel ? 924 : 856, h: bottom - sy };
-    let card = reel ? { h: 124, size: 46 } : { h: 112, size: 40 }, st = reel ? { max: 74, min: 38 } : { max: 64, min: 34 };
+    let card = reel ? { h: 124, size: 46 } : { h: 124, size: 44 }, st = reel ? { max: 74, min: 38 } : { max: 66, min: 34 };
     let gap = reel ? 26 : 22, plusH = reel ? 54 : 48;
-    for (let k = 0; k < 8; k++) {
-      buildRows(ctx, card, st, gap, plusH, 0.5);
-      if (ROWS.total <= STK.h) break;
-      card = { h: card.h * 0.93, size: Math.max(28, Math.round(card.size * 0.93)) }; st = { max: Math.round(st.max * 0.93), min: st.min }; gap *= 0.9; plusH *= 0.93;
+    // reparte el panel: la frase nunca debe quedar más chica que el texto de las tarjetas (×1.15)
+    for (let k = 0; k < 12; k++) {
+      buildRows(ctx, card, st, gap, plusH, 'auto');
+      const stRows = ROWS.filter(r => r.type === 'st'), minSt = stRows.length ? Math.min(...stRows.map(r => r.f.size)) : 1e9;
+      const hasCards = ROWS.some(r => r.type === 'card');
+      if (ROWS.total <= STK.h && (!hasCards || minSt >= card.size * 1.15)) break;
+      card = { h: card.h * 0.94, size: Math.max(28, Math.round(card.size * 0.94)) }; gap *= 0.94; plusH *= 0.94;
     }
   } else {
     STK = LY.stack;
@@ -251,8 +297,8 @@ function prepare() {
   // garabatos de fondo (deterministas)
   const r = rng(5 + COPY.id.length);
   const spots = LY.doodles === 'reel'
-    ? [[110, 1450], [960, 1520], [180, 1700], [880, 1760], [520, 1640], [70, 880], [1010, 760], [330, 1820], [720, 1830], [990, 1180]]
-    : [[60, 560], [1020, 520], [70, 1010], [1015, 1000], [120, 300], [960, 250]];
+    ? [[110, 1450], [960, 1520], [180, 1700], [880, 1760], [520, 1640], [44, 1250], [1036, 1330], [330, 1820], [720, 1830], [1030, 1110]]
+    : [[60, 560], [1020, 520], [70, 1010], [1015, 1000], [44, 760], [1036, 820]];
   const types = ['star', 'plus', 'circle', 'squiggle', 'tri'];
   DOODLES = spots.map((p, i) => ({ x: p[0], y: p[1], type: types[i % 5], s: 16 + r() * 16, rot: r() * TAU, ph: r() * TAU, t0: 0.4 + i * 0.07 }));
   // confeti
@@ -345,8 +391,8 @@ function drawHookText(ctx, t) {
     segs.forEach(s => {
       const p = E.outCubic(segP(s)); if (p <= 0) return;
       const pad = size * 0.11, x0 = s.x0 - pad, x1 = lerp(x0, s.x1 + pad, p);
-      ctx.save(); ctx.translate(x0, s.y); ctx.rotate(-0.012);
-      ctx.fillStyle = C.coral; rr(ctx, 0, -size * 0.8, x1 - x0, size * 1.02, size * 0.14); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.translate(x0, s.y); ctx.rotate(TL.v === 2 ? -0.004 : -0.012);
+      ctx.fillStyle = C.coral; rr(ctx, 0, -size * 0.78, x1 - x0, size * 1.13, size * 0.14); ctx.fill(); ctx.restore();
       s.mx = x1;
     });
   }
@@ -373,10 +419,11 @@ function drawHookText(ctx, t) {
         const n = 40, x0 = s.x0 - size * 0.05, x1 = s.x1 + size * 0.08;
         for (let k = 0; k <= n * p; k++) { const u = k / n; const x = lerp(x0, x1, u), y = s.y + size * 0.2 + Math.sin(u * TAU * 1.2 + si) * size * 0.03 - u * size * 0.04; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
       } else {
-        ctx.lineWidth = size * 0.07;
-        const cx = (s.x0 + s.x1) / 2, cy = s.y - size * 0.3, rx = (s.x1 - s.x0) / 2 + size * 0.24, ry = size * 0.68;
-        const a0 = -2.5, n = 70;
-        for (let k = 0; k <= n * p; k++) { const u = k / n, a = a0 + u * TAU * 1.1; const sp = 1 + 0.07 * u; const x = cx + Math.cos(a) * rx * sp, y = cy + Math.sin(a) * ry * sp * (1 + 0.04 * Math.sin(3 * a)); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.lineWidth = size * 0.065;
+        // superelipse (n≈4): abraza las esquinas del texto (¿?, acentos, descendentes) sin chocar con lo vecino
+        const cx = (s.x0 + s.x1) / 2 + size * 0.02, cy = s.y - size * 0.25, rx = (s.x1 - s.x0) / 2 + size * 0.19, ry = size * 0.58;
+        const a0 = -2.2, n = 110, sg = v => Math.sign(v) * Math.pow(Math.abs(v), 0.3);
+        for (let k = 0; k <= n * p; k++) { const u = k / n, a = a0 + u * TAU * 1.06, sp = 1 + 0.035 * u; const x = cx + sg(Math.cos(a)) * rx * sp, y = cy + sg(Math.sin(a)) * ry * sp; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
       }
       ctx.stroke();
     });
@@ -448,7 +495,7 @@ function mShapes(ctx, t, X, v) {
   // celebración
   if (t > fitT) {
     const q = t - fitT;
-    for (let k = 0; k < 2; k++) { const p = prog(q, k * 0.12, k * 0.12 + 0.7); if (p > 0 && p < 1) { ctx.strokeStyle = k ? C.orange : C.coral; ctx.lineWidth = u * 0.025 * (1 - p); ctx.beginPath(); ctx.ellipse(hx, hy, R * (1.1 + 1.6 * E.outCubic(p)), R * (1.0 + 1.3 * E.outCubic(p)), 0, 0, TAU); ctx.stroke(); } }
+    for (let k = 0; k < 2; k++) { const p = prog(q, k * 0.12, k * 0.12 + 0.7); if (p > 0 && p < 1) { ctx.strokeStyle = k ? C.orange : C.coral; ctx.lineWidth = u * 0.025 * (1 - p); ctx.beginPath(); ctx.ellipse(hx, hy, R * (1.1 + 1.3 * E.outCubic(p)), R * (1.0 + 0.95 * E.outCubic(p)), 0, 0, TAU); ctx.stroke(); } }
     [[-0.95, -0.9, C.star], [0, -1.25, C.orange], [0.95, -0.9, C.lav]].forEach(([dx, dy, col], k) => {
       const p = E.outCubic(prog(q, 0.02 + k * 0.05, 0.75 + k * 0.05)), f = 1 - prog(q, 1.2, 1.6);
       if (p <= 0 || f <= 0) return;
@@ -480,7 +527,7 @@ function mSpotlight(ctx, t, X, v) {
       sc *= (va === 'crowd' ? 1 + 0.75 * k : 1 + 0.45 * k) * (1 + 0.03 * Math.sin((t - P) * 4) * prog(t, P + 1.4, P + 1.9));
       if (va === 'crowd') y += E.outCubic(prog(t, P, P + 0.5)) * u * 0.32;
       fill = mix(C.lavL, C.coral, kc);
-    } else { bob *= (1 - fade); fill = mix(C.lavL, '#EFEDF6', fade); a = 1 - 0.55 * fade; }
+    } else { bob *= (1 - fade); fill = mix(C.lavL, '#EFEDF6', fade); const near = f.c === chosen.c && (va === 'crowd' ? f.r === chosen.r + 1 : f.r === chosen.r - 1); a = 1 - (near ? 1 : 0.55) * fade; }
     ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y - bob); ctx.scale(sc, sc);
     figure(ctx, 0, 0, s, fill, stroke, lw / sc * Math.min(1, sc)); ctx.restore();
   }
@@ -594,8 +641,9 @@ function mGrowth(ctx, t, X) {
     ctx.fillStyle = g; ctx.globalAlpha = clamp(sp * 2); ctx.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2); ctx.globalAlpha = 1;
     const rp = prog(t, P, P + 0.7);
     if (rp < 1) { ctx.strokeStyle = C.orange; ctx.lineWidth = u * 0.018; ctx.lineCap = 'round'; for (let k = 0; k < 8; k++) { const a = k / 8 * TAU, r0 = u * (0.2 + 0.25 * E.outCubic(rp)), r1 = r0 + u * 0.1 * (1 - rp); ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0); ctx.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); ctx.stroke(); } }
-    ctx.save(); ctx.translate(x, y); ctx.rotate((1 - E.outCubic(sp)) * -1.5 + Math.sin(t * 2) * 0.05); starPath(ctx, 0, 0, u * 0.2 * e); ctx.fillStyle = C.coral; ctx.fill(); ctx.restore();
-    for (let k = 0; k < 9; k++) { const q = prog(t, P + 0.1 + k * 0.12, P + 1.4 + k * 0.12); if (q <= 0 || q >= 1) continue; const a = k * 2.4; sparkle(ctx, x + Math.cos(a) * u * (0.25 + 0.35 * q), y - u * 0.1 - q * u * 0.45 + Math.sin(a) * u * 0.1, u * 0.035 * Math.sin(Math.PI * q), k % 2 ? C.orange : C.lav); }
+    const bp = t > P + 0.6 ? 1 + 0.07 * Math.exp(-(((t - P - 0.6) / TL.B) % 1) * 5) : 1;
+    ctx.save(); ctx.translate(x, y); ctx.rotate((1 - E.outCubic(sp)) * -1.5 + Math.sin(t * 2) * 0.05); starPath(ctx, 0, 0, u * 0.2 * e * bp); ctx.fillStyle = C.coral; ctx.fill(); ctx.restore();
+    for (let k = 0; k < 9; k++) { const ph = t - P - 0.1 - k * 0.12; if (ph < 0) continue; const q = (ph % 1.6) / 1.3; if (q >= 1) continue; const a = k * 2.4; sparkle(ctx, x + Math.cos(a) * u * (0.25 + 0.35 * q), y - u * 0.1 - q * u * 0.45 + Math.sin(a) * u * 0.1, u * 0.035 * Math.sin(Math.PI * q), k % 2 ? C.orange : C.lav); }
   }
 }
 
@@ -620,7 +668,7 @@ function mBookburst(ctx, t, X) {
   }
   const q = t - P, op = E.outBack(prog(q, 0, 0.35), 2.2);
   const g = ctx.createRadialGradient(bx, by - u * 0.1, 0, bx, by - u * 0.1, u * 0.9); g.addColorStop(0, 'rgba(255,214,120,0.5)'); g.addColorStop(1, 'rgba(255,214,120,0)');
-  ctx.globalAlpha = clamp(1 - q * 0.6); ctx.fillStyle = g; ctx.fillRect(bx - u, by - u, u * 2, u * 2); ctx.globalAlpha = 1;
+  ctx.globalAlpha = Math.max(clamp(1 - q * 0.6), 0.35 + 0.1 * Math.sin(q * 3)); ctx.fillStyle = g; ctx.fillRect(bx - u, by - u, u * 2, u * 2); ctx.globalAlpha = 1;
   for (const p of CONF) {
     const tt = q, vx = Math.cos(p.a) * p.v * u, vy = Math.sin(p.a) * p.v * u, dr = 1.6;
     const x = bx + vx * (1 - Math.exp(-dr * tt)) / dr, y = by - u * 0.1 + vy * (1 - Math.exp(-dr * tt)) / dr + 0.55 * u * tt * tt;
@@ -635,7 +683,7 @@ function mBookburst(ctx, t, X) {
   }
   ctx.save(); ctx.translate(bx, by); ctx.scale(op, op); openBook(ctx, 0, 0, u * 1.0, u * 0.34, lw / Math.max(op, 0.2)); ctx.restore();
   ['a', 'b', 'c', '1', '2', '3'].forEach((ch, k) => {
-    const p = prog(q, 0.1 + k * 0.1, 1.5 + k * 0.1); if (p <= 0 || p >= 1) return;
+    const ph = q - 0.1 - k * 0.1; if (ph < 0) return; const p = (ph % 1.9) / 1.4; if (p >= 1) return;
     const x = bx + (k - 2.5) * u * 0.2 + Math.sin(p * 5 + k) * u * 0.04, y = by - u * 0.15 - E.outCubic(p) * u * 0.7;
     ctx.globalAlpha = Math.sin(Math.PI * p) * clamp((y - u * 0.15 - HOOK.bottom) / (u * 0.15)); font(ctx, 700, u * 0.2, 'Hand'); ctx.fillStyle = k % 2 ? C.purple : C.coral; ctx.textAlign = 'center'; ctx.fillText(ch, x, y); ctx.textAlign = 'left'; ctx.globalAlpha = 1;
   });
@@ -668,6 +716,7 @@ function mSteps(ctx, t, X) {
   ctx.save(); ctx.setLineDash([u * 0.025, u * 0.03]); ctx.strokeStyle = C.coral; ctx.globalAlpha = 0.5; ctx.lineWidth = lw; ctx.lineCap = 'round';
   ctx.beginPath(); for (let i = 0; i <= Math.min(3, k + 1); i++) { const a = spot(i - 1), b = spot(i); const lim = i <= k ? 1 : clamp(prog(t, hops[i], hops[i] + 0.38)); for (let j = 0; j <= 20 * lim; j++) { const e = j / 20; const px = lerp(a[0], b[0], e), py = lerp(a[1], b[1], e) - Math.sin(Math.PI * e) * u * 0.2 - u * 0.12; (i === 0 && j === 0) ? ctx.moveTo(px, py) : ctx.lineTo(px, py); } } ctx.stroke();
   ctx.restore();
+  if (t > P + 1.0) { const f = ((t - P - 1.0) / B) % 1; y -= Math.sin(Math.PI * f) * u * 0.07; }
   const ap = E.outBack(prog(t, 0.45, 0.85), 2);
   if (ap > 0) { ctx.save(); ctx.translate(x, y); ctx.scale(sx * ap, sy * ap); figure(ctx, 0, 0, u * 0.11, C.coral, C.navy, lw / ap); ctx.restore(); }
   const top = spot(3);
@@ -712,7 +761,8 @@ function mDesks(ctx, t, X) {
   const clusters = [[cx - u * 0.64, cy + u * 0.26], [cx, cy + u * 0.02], [cx + u * 0.64, cy + u * 0.26]];
   clusters.forEach(([x, y], i) => {
     const p = E.outBack(prog(t, P + 0.2 + i * 0.06, P + 0.55 + i * 0.06), 2); if (p <= 0) return;
-    ctx.fillStyle = i === 1 ? C.coral : C.purple; ctx.beginPath(); ctx.arc(x, y, u * 0.1 * p, 0, TAU); ctx.fill();
+    const tb = t > P + 0.9 ? 1 + 0.1 * Math.exp(-(((t - P - 0.9) / B) % 1) * 7) : 1;
+    ctx.fillStyle = i === 1 ? C.coral : C.purple; ctx.beginPath(); ctx.arc(x, y, u * 0.1 * p * tb, 0, TAU); ctx.fill();
   });
   const pulse = t < P ? [2, 3, 4].reduce((a, b) => a + Math.exp(-Math.max(0, t - b * B) * 10) * (t > b * B ? 1 : 0), 0) * 0.07 : 0;
   for (let k = 0; k < 12; k++) {
@@ -742,8 +792,8 @@ const METAS = { shapes: mShapes, spotlight: mSpotlight, lockstep: mLockstep, gro
 const ICONS = {
   user(c) { c.beginPath(); c.arc(0, -0.38, 0.3, 0, TAU); c.stroke(); c.beginPath(); c.moveTo(-0.62, 0.7); c.bezierCurveTo(-0.62, 0.02, 0.62, 0.02, 0.62, 0.7); c.stroke(); },
   duo(c) { c.save(); c.translate(-0.32, 0.02); c.scale(0.78, 0.78); ICONS.user(c); c.restore(); c.save(); c.translate(0.42, 0.14); c.scale(0.62, 0.62); ICONS.user(c); c.restore(); },
-  group(c) { c.save(); c.translate(0, -0.06); c.scale(0.66, 0.66); ICONS.user(c); c.restore(); for (const sd of [-1, 1]) { c.save(); c.translate(sd * 0.66, 0.16); c.scale(0.48, 0.48); ICONS.user(c); c.restore(); } },
-  heart(c) { heartPath(c, 0, 0.05, 0.75); c.stroke(); },
+  group(c) { c.lineWidth *= 1.15; c.save(); c.translate(0, -0.1); c.scale(0.8, 0.8); ICONS.user(c); c.restore(); for (const sd of [-1, 1]) { c.save(); c.translate(sd * 0.72, 0.14); c.scale(0.58, 0.58); ICONS.user(c); c.restore(); } },
+  heart(c) { heartPath(c, 0, 0.1, 0.95); c.stroke(); },
   shield(c) { c.beginPath(); c.moveTo(0, -0.85); c.lineTo(0.72, -0.55); c.lineTo(0.72, 0.05); c.quadraticCurveTo(0.72, 0.6, 0, 0.9); c.quadraticCurveTo(-0.72, 0.6, -0.72, 0.05); c.lineTo(-0.72, -0.55); c.closePath(); c.stroke(); c.beginPath(); c.moveTo(-0.32, 0.02); c.lineTo(-0.06, 0.3); c.lineTo(0.36, -0.2); c.stroke(); },
   star(c) { starPath(c, 0, 0.04, 0.85, 0.45); c.stroke(); },
   book(c) { c.beginPath(); c.moveTo(0, -0.42); c.quadraticCurveTo(-0.45, -0.72, -0.88, -0.52); c.lineTo(-0.88, 0.55); c.quadraticCurveTo(-0.45, 0.36, 0, 0.62); c.quadraticCurveTo(0.45, 0.36, 0.88, 0.55); c.lineTo(0.88, -0.52); c.quadraticCurveTo(0.45, -0.72, 0, -0.42); c.closePath(); c.stroke(); c.beginPath(); c.moveTo(0, -0.42); c.lineTo(0, 0.62); c.stroke(); },
@@ -899,6 +949,10 @@ function drawPill(ctx, t) {
   const e = E.outBack(p, 1.7);
   let press = 0; TL.taps.forEach(tp => { const q = prog(t, tp - 0.06, tp + 0.22); if (q > 0 && q < 1) press += Math.sin(Math.PI * q) * 0.05; });
   const w = PILL.w, h = P.h, x = W / 2 - w / 2, y = P.cy - h / 2, s = lerp(0.6, 1, e) * (1 - press);
+  TL.taps.forEach(tp => { // onda detrás del botón
+    const q = prog(t, tp, tp + 0.6), ax2 = W / 2 + w / 2 - h * 0.5 - 6;
+    if (q > 0 && q < 1) { ctx.strokeStyle = C.coral; ctx.globalAlpha = 1 - q; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ax2, P.cy, h * 0.4 + q * h * 0.35, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
+  });
   ctx.save(); ctx.globalAlpha = clamp(p * 3); ctx.translate(W / 2, P.cy); ctx.scale(s, s); ctx.translate(-W / 2, -P.cy);
   ctx.shadowColor = 'rgba(37,23,46,0.35)'; ctx.shadowBlur = 34; ctx.shadowOffsetY = 14;
   ctx.fillStyle = C.deep; rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.shadowColor = 'transparent';
@@ -910,9 +964,7 @@ function drawPill(ctx, t) {
   ctx.beginPath(); ctx.moveTo(ax - ar * 0.42 + nud, ay); ctx.lineTo(ax + ar * 0.42 + nud, ay); ctx.moveTo(ax + ar * 0.08 + nud, ay - ar * 0.34); ctx.lineTo(ax + ar * 0.42 + nud, ay); ctx.lineTo(ax + ar * 0.08 + nud, ay + ar * 0.34); ctx.stroke();
   ctx.restore();
   TL.taps.forEach(tp => {
-    const q = prog(t, tp, tp + 0.6), ax2 = W / 2 + w / 2 - h * 0.5 - 6;
-    if (q > 0 && q < 1) { ctx.strokeStyle = C.coral; ctx.globalAlpha = 1 - q; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ax2, P.cy, h * 0.4 + q * h * 0.7, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
-    const f = prog(t, tp - 0.3, tp + 0.35);
+    const ax2 = W / 2 + w / 2 - h * 0.5 - 6, f = prog(t, tp - 0.3, tp + 0.35);
     if (f > 0 && f < 1) { const a = Math.sin(Math.PI * f), pr = t > tp ? 0.85 : 1; ctx.save(); ctx.globalAlpha = a * 0.9; ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.strokeStyle = C.lav; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(ax2 + 18, P.cy + 22, h * 0.2 * pr, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore(); }
   });
 }
@@ -929,8 +981,8 @@ function drawCTA(ctx, t) {
 // ============================================================================
 function drawHookScene(ctx, t, withText = true) {
   const v2 = TL.v === 2;
-  paper(ctx, t, false); doodles(ctx, t + 0.4); chip(ctx, t + (v2 ? 1 : 0.35), v2 ? 1 - prog(t, TL.panelT, TL.panelT + 0.35) : 1);
-  const I = LY.ill; METAS[COPY.meta.type](ctx, t - TL.metaOff, { cx: I.cx, cy: I.cy, u: I.u }, COPY.meta);
+  paper(ctx, t, false); doodles(ctx, t + 0.4, v2 ? 1 - prog(t, TL.panelT - 0.3, TL.panelT) : 1); chip(ctx, t + (v2 ? 1 : 0.35), v2 ? 1 - prog(t, TL.panelT - 0.45, TL.panelT - 0.2) : 1);
+  const I = ILL; METAS[COPY.meta.type](ctx, t - TL.metaOff, { cx: I.cx, cy: I.cy, u: I.u }, COPY.meta);
   if (withText) drawHook(ctx, t);
 }
 function barRect(t) {
